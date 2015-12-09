@@ -1,0 +1,640 @@
+
+(in-package #:fsocket)
+
+;; --------------------------------------
+
+(defcfun (strerror "strerror") :string
+  (sts :int32))
+
+(defcvar (*errno* "errno") :int32)
+
+(define-condition posix-error (fsocket-error)
+  ((code :initform 0 :initarg :code :reader posix-error-code))
+  (:report (lambda (condition stream)
+             (format stream "FSOCKET-ERROR ~A (0x~X): ~A" 
+                     (posix-error-code condition)
+                     (posix-error-code condition)
+                     (strerror (posix-error-code condition))))))
+
+(defun get-last-error ()
+  (let ((code *errno*))
+    (error 'posix-error :code code)))
+
+;; --------------------------------------
+
+(defconstant +socket-error+ -1)
+(defun invalid-socket-p (sock)
+  (= sock -1))
+
+;; int socket(int socket_family, int socket_type, int protocol);
+(defcfun (%socket "socket") :int32
+  (family :int32)
+  (type :int32)
+  (prot :int32))
+
+(defun open-socket (&key (family +af-inet+) (type :datagram) protocol)
+    "Open a socket. Call CLOSE-SOCKET to free resources.
+FAMILY ::= address family integer. Defaults to AF_INET i.e. IPv4.
+TYPE ::= socket type name, defaults to SOCK_DGRAM. Can be :datagram or :stream.
+PROTOCOL ::= socket protocol integer. Usually doesn't need to be specified.
+
+Returns the socket file descriptor."
+  (let ((fd (%socket family
+                     (ecase type
+                       (:stream 1)
+                       (:datagram 2))
+                     (or protocol 0))))
+    (if (invalid-socket-p fd)
+        (get-last-error)
+        fd)))
+
+;; int close(int fd);
+(defcfun (%close "close") :int
+  (fd :int32))
+
+(defun close-socket (fd)
+  "Close the socket named by FD."
+  (let ((sts (%close fd)))
+    (if (= sts -1)
+        (get-last-error)
+        nil)))
+
+;; int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+(defcfun (%bind "bind") :int32
+  (fd :int32)
+  (addr :pointer)
+  (len :int32))
+
+(defun socket-bind (fd addr)
+  "Bind the socket to the local address.
+FD ::= socket file descriptor.
+ADDR ::= local address. Can be either SOCKADDR-IN or SOCKADDR-IN6."
+  (etypecase addr
+    (sockaddr-in
+     (with-foreign-object (p '(:struct sockaddr-in))
+       (setf (mem-aref p '(:struct sockaddr-in)) addr)
+       (let ((sts (%bind fd p (foreign-type-size '(:struct sockaddr-in)))))
+         (if (= sts +socket-error+)
+             (get-last-error)
+             nil))))
+    (sockaddr-in6
+     (with-foreign-object (p '(:struct sockaddr-in6))
+       (setf (mem-aref p '(:struct sockaddr-in6)) addr)
+       (let ((sts (%bind fd p (foreign-type-size '(:struct sockaddr-in6)))))
+         (if (= sts +socket-error+)
+             (get-last-error)
+             nil))))))
+
+;; int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+(defcfun (%connect "connect") :int32
+  (fd :int32)
+  (addr :pointer)
+  (len :int32))
+(defun socket-connect (fd addr)
+    "Connect the socket to the remote address.
+SOCK :: socket.
+ADDR ::= remote address."
+    (etypecase addr
+      (sockaddr-in
+       (with-foreign-object (a '(:struct sockaddr-in))
+         (setf (mem-aref a '(:struct sockaddr-in)) addr)
+         (let ((sts (%connect fd a (foreign-type-size '(:struct sockaddr-in)))))
+           (if (= sts +socket-error+)
+               (get-last-error)
+               nil))))
+      (sockaddr-in6
+       (with-foreign-object (a '(:struct sockaddr-in6))
+         (setf (mem-aref a '(:struct sockaddr-in6)) addr)
+         (let ((sts (%connect fd a (foreign-type-size '(:struct sockaddr-in6)))))
+           (if (= sts +socket-error+)
+               (get-last-error)
+               nil))))))
+
+;; int listen(int sockfd, int backlog);
+(defcfun (%listen "listen") :int32
+  (fd :int32)
+  (backlog :int32))
+
+(defun socket-listen (fd &optional backlog)
+  "Start the socket listening."
+  (let ((sts (%listen fd (or backlog 128)))) ;; SOMAXCONN
+    (if (= sts +socket-error+)
+        (get-last-error)
+        nil)))
+                      
+;; int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+(defcfun (%accept "accept") :int32
+  (fd :int32)
+  (addr :pointer)
+  (len :pointer))
+
+(defun socket-accept (fd)
+  "Accept a connection from the listening socket.
+SOCK ::= listening socket.
+
+Returns (values conn addr) where
+CONN ::= new connected socket.
+ADDR ::= address of the connected socket."
+  (with-foreign-objects ((buffer :uint8 32)
+                         (alen :uint32))
+    (setf (mem-aref alen :uint32) 32)
+    (let ((sts (%accept fd
+                        buffer
+                        alen)))
+      (cond
+        ((invalid-socket-p sts)
+         (get-last-error))
+        (t
+         (let ((family #+freebsd(mem-aref buffer :uint8 1)
+                       #-freebsd(mem-aref buffer :uint16)))
+           (cond 
+             ((= family +af-inet+)
+              (let ((addr (mem-aref buffer '(:struct sockaddr-in))))
+                (values sts addr)))
+             ((= family +af-inet6+)
+              (let ((addr (mem-aref buffer '(:struct sockaddr-in6))))
+                (values sts addr)))
+             (t
+              (close-socket sts)
+              (error 'fsocket-error :msg (format nil "Unknown address family ~A" family))))))))))
+
+;; int shutdown(int sockfd, int how);
+(defcfun (%shutdown-socket "shutdown") :int32
+  (fd :int32)
+  (how :int32))
+
+(defun socket-shutdown (fd &optional (how :receive))
+  "Shutdown traffic on the TCP socket.
+HOW ::= :SEND to stop sending, :RECEIVE to stop receiving, :BOTH to stop both."
+  (let ((sts
+         (%shutdown-socket fd
+                           (ecase how
+                             (:send 1)
+                             (:both 2)
+                             (:receive 0)))))
+    (if (= sts +socket-error+)
+        (get-last-error)
+        nil)))
+
+;; ------------------------------------------------
+
+(defctype size-t
+    #+(or amd64 x86-64 x64):uint64
+    #-(or amd64 x86-64 x64):uint32)
+(defctype ssize-t
+    #+(or amd64 x86-64 x64):int64
+    #-(or amd64 x86-64 x64):int32)
+
+;; ssize_t send(int sockfd, const void *buf, size_t len, int flags);
+(defcfun (%send "send") ssize-t
+  (fd :int32)
+  (buffer :pointer)
+  (len size-t)
+  (flags :int32))
+(defun socket-send (fd buffer &key (start 0) end)
+  "Send a buffer on the connected socket.
+SOCK ::= connected socket.
+BUFFER ::= octet array.
+START ::= start index of buffer.
+END ::= end index of buffer.
+
+Returns the number of bytes actually sent, which can be less than the requested length."
+  (let ((count (- (or end (length buffer)) start)))
+    (with-foreign-object (p :uint8 count)
+      (dotimes (i count)
+        (setf (mem-aref p :uint8 i) (aref buffer (+ start i))))
+      (let ((sts (%send fd p count 0)))
+        (if (= sts +socket-error+)
+            (get-last-error)
+            sts)))))
+
+;; ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
+;;                const struct sockaddr *dest_addr, socklen_t addrlen);
+(defcfun (%sendto "sendto") ssize-t
+  (fd :int32)
+  (buffer :pointer)
+  (len size-t)
+  (flags :int32)
+  (addr :pointer)
+  (alen :int32))
+(defun socket-sendto (fd buffer addr &key (start 0) end)
+  "Send data to the address on the socket.
+SOCK ::= socket.
+BUFFER ::= octet array
+ADDR ::= destination address, either a SOCKADDR-IN or SOCKADDR-IN6 structure.
+START ::= buffer start index
+END ::= buffer end index.
+
+Returns the number of octets actually sent, which can be less than the number requested."
+  (let ((count (- (or end (length buffer)) start))
+        (alen 0))
+    (with-foreign-objects ((p :uint8 count)
+                           (a :uint8 32))
+      (dotimes (i count)
+        (setf (mem-aref p :uint8 i)
+              (aref buffer (+ start i))))
+      (etypecase addr
+        (sockaddr-in
+         (setf (mem-aref a '(:struct sockaddr-in)) addr
+               alen (foreign-type-size '(:struct sockaddr-in))))
+        (sockaddr-in6
+         (setf (mem-aref a '(:struct sockaddr-in6)) addr
+               alen (foreign-type-size '(:struct sockaddr-in6)))))
+      (let ((sts (%sendto fd
+                          p
+                          count
+                          0
+                          a
+                          alen)))
+        (if (= sts +socket-error+)
+            (get-last-error)
+            sts)))))
+
+
+;; ssize_t recv(int sockfd, void *buf, size_t len, int flags);
+(defcfun (%recv "recv") ssize-t
+  (fd :int32)
+  (buffer :pointer)
+  (len size-t)
+  (flags :int32))
+(defun socket-recv (fd buffer &key (start 0) end)
+  "Receive data from the socket.
+SOCK ::= socket.
+BUFFER ::= octet array to receive data into.
+START ::= buffer start idnex.
+END ::= buffer end index.
+
+Retuns the number of bytes actually received, which can be less than the number requested."
+  (let ((count (- (or end (length buffer)) start)))
+    (with-foreign-object (p :uint8 count)
+      (let ((sts (%recv fd p count 0)))
+        (cond
+          ((= sts +socket-error+)
+           (get-last-error))
+          (t
+           (dotimes (i sts)
+             (setf (aref buffer (+ start i))
+                   (mem-aref p :uint8 i)))
+           sts))))))
+
+;;ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
+;;                 struct sockaddr *src_addr, socklen_t *addrlen);
+(defcfun (%recvfrom "recvfrom") ssize-t
+  (fd :int32)
+  (buffer :pointer)
+  (len size-t)
+  (flags :int32)
+  (addr :pointer)
+  (alen :pointer))
+(defun socket-recvfrom (fd buffer &key (start 0) end)
+  "Receive data from the socket.
+SOCK ::= socket.
+BUFFER ::= octet array
+START ::= start index
+END ::= end index.
+
+Returns (values count addr) where
+COUNT ::= number of octets actually received, which can be less tha nthe number requested.
+ADDR ::= remote address from which the data was received.
+"
+  (let ((count (- (or end (length buffer)) start)))
+    (with-foreign-objects ((p :uint8 count)
+                           (a :uint8 32)
+                           (alen :uint32))
+      (setf (mem-aref alen :uint32) 32)
+      (let ((sts (%recvfrom fd
+                            p
+                            count
+                            0
+                            a
+                            alen)))
+        (cond
+          ((= sts +socket-error+)
+           (get-last-error))
+          (t
+           (dotimes (i sts)
+             (setf (aref buffer (+ start i)) (mem-ref p :uint8 i)))
+           (let ((family #+freebsd(mem-aref a :uint8 1)
+                         #-freebsd(mem-aref a :uint16)))
+             (cond
+               ((= family +af-inet+)
+                (let ((addr (mem-aref a '(:struct sockaddr-in))))
+                  (values sts addr)))
+               ((= family +af-inet6+)
+                (let ((addr (mem-aref a '(:struct sockaddr-in6))))
+                  (values sts addr)))
+               (t (error 'fsocket-error :msg (format nil "Unknown address family ~A" family)))))))))))
+
+;; int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
+(defcfun (%getsockopt "getsockopt") :int32
+  (fd :int32)
+  (level :int32)
+  (option :int32)
+  (val :pointer)
+  (vlen :pointer))
+
+;;int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
+(defcfun (%setsockopt "setsockopt") :int32
+  (fd :int32)
+  (level :int32)
+  (option :int32)
+  (val :pointer)
+  (vlen :int32))
+
+;; -----------------------------------------------------
+
+(defcstruct (pollfd :class pollfd-tclass)
+  (fd :int32)
+  (events :uint16)
+  (revents :uint16))
+
+(defmethod translate-from-foreign (ptr (type pollfd-tclass))
+  (let ((pollfd (make-instance 'pollfd)))
+    (setf (pollfd-fd pollfd) (foreign-slot-value ptr '(:struct pollfd) 'fd)
+          (pollfd-events pollfd) (foreign-slot-value ptr '(:struct pollfd) 'events)
+          (pollfd-revents pollfd) (foreign-slot-value ptr '(:struct pollfd) 'revents))
+    pollfd))
+
+(defmethod translate-into-foreign-memory (pollfd (type pollfd-tclass) ptr)
+  (setf (foreign-slot-value ptr '(:struct pollfd) 'fd)
+        (pollfd-fd pollfd)
+        (foreign-slot-value ptr '(:struct pollfd) 'events)
+        (pollfd-events pollfd)
+        (foreign-slot-value ptr '(:struct pollfd) 'revents)
+        (pollfd-revents pollfd))
+  ptr)
+
+(defstruct poll-context
+  fds)
+
+;; these are basically nops on POSIX.
+(defun open-poll ()
+  "Open a poll context."
+  (make-poll-context :fds nil))
+
+(defun close-poll (pc)
+  "Close a poll context"
+  (declare (ignore pc))
+  nil)
+
+(defun poll-register (pc pollfd)
+  "Register a pollfd descriptor with a poll context."
+  (push pollfd (poll-context-fds pc)))
+
+(defun poll-unregister (pc pollfd)
+  "Unregister a pollfd descriptor from a poll context."
+  (setf (poll-context-fds pc)
+        (remove pollfd (poll-context-fds pc)))
+  nil)
+
+;; int poll(struct pollfd *fds, nfds_t nfds, int timeout);
+(defcfun (%poll "poll") :int32
+  (fds :pointer)
+  (count :int32)
+  (timeout :int32))
+
+(defun poll (pc &key timeout ready-only)
+  "Poll the sockets registered with the poll context for network events.
+
+PC ::= poll context as returne from OPEN-POLL.
+TIMEOUT ::= if supplied time in milliseconds to wait. If not supplied defaults to infinity..
+READY-ONLY ::= if true POLL will return a freshly consed list of POLLFD descriptors for only those
+sockets with events pending. If false the original pollfd list will be returned, each pollfd structure 
+should then be examined to determine which has data available.
+"
+  (declare (type poll-context pc)
+           (type (or null integer) timeout))
+  (let* ((fds (poll-context-fds pc))
+         (count (length fds)))
+    (with-foreign-object (p '(:struct pollfd) count)
+      (do ((%fds fds (cdr %fds))
+           (i 0 (1+ i)))
+          ((null %fds))
+        (setf (mem-aref p '(:struct pollfd) i) (car %fds)))
+      (let ((sts (%poll p count (or timeout -1))))
+        (cond
+          ((< sts 0)
+           (error "error"))
+          ((= sts 0)
+           ;; timeout
+           nil)
+          (t
+           (do ((i 0 (1+ i))
+                (%fds fds (cdr %fds))
+                (ret (if ready-only nil fds)))
+               ((null %fds) ret)
+             (let ((revents (foreign-slot-value (inc-pointer p (* i (foreign-type-size '(:struct pollfd))))
+                                                '(:struct pollfd) 'revents)))
+               (unless (zerop revents)
+                 (if ready-only
+                     (push (mem-aref p '(:struct pollfd) i) ret)
+                     (setf (pollfd-revents (car %fds)) revents)))))))))))
+
+
+
+;; --------------------------------------
+
+;; Below we get a list of local host hardware adapters
+
+;; struct ifaddrs {
+;;                struct ifaddrs  *ifa_next;    /* Next item in list */
+;;                char            *ifa_name;    /* Name of interface */
+;;                unsigned int     ifa_flags;   /* Flags from SIOCGIFFLAGS */
+;;                struct sockaddr *ifa_addr;    /* Address of interface */
+;;                struct sockaddr *ifa_netmask; /* Netmask of interface */
+;;                union {
+;;                    struct sockaddr *ifu_broadaddr;
+;;                                     /* Broadcast address of interface */
+;;                    struct sockaddr *ifu_dstaddr;
+;;                                     /* Point-to-point destination address */
+;;                } ifa_ifu;
+;;            #define              ifa_broadaddr ifa_ifu.ifu_broadaddr
+;;            #define              ifa_dstaddr   ifa_ifu.ifu_dstaddr
+;;                void            *ifa_data;    /* Address-specific data */
+;;            };
+(defcstruct ifaddrs
+  (next :pointer)
+  (name :pointer)
+  (flags :uint32)
+  (addr :pointer)
+  (netmask :pointer)
+  (broadcast :pointer)
+  (data :pointer))
+    
+;; int getifaddrs(struct ifaddrs **ifap);
+(defcfun (%getifaddrs "getifaddrs") :int32
+  (ifaddrs :pointer))
+
+;; void freeifaddrs(struct ifaddrs *ifa);
+(defcfun (%freeifaddrs "freeifaddrs") :void
+  (ifaddrs :pointer))
+
+        
+;; struct ifreq
+;;   {
+;; # define IFHWADDRLEN    6
+;; # define IFNAMSIZ       IF_NAMESIZE
+;;     union
+;;       {
+;;         char ifrn_name[IFNAMSIZ];       /* Interface name, e.g. "en0".  */
+;;       } ifr_ifrn;
+
+;;     union
+;;       {
+;;         struct sockaddr ifru_addr;
+;;         struct sockaddr ifru_dstaddr;
+;;         struct sockaddr ifru_broadaddr;
+;;         struct sockaddr ifru_netmask;
+;;         struct sockaddr ifru_hwaddr;
+;;         short int ifru_flags;
+;;         int ifru_ivalue;
+;;         int ifru_mtu;
+;;         struct ifmap ifru_map;
+;;         char ifru_slave[IFNAMSIZ];      /* Just fits the size */
+;;         char ifru_newname[IFNAMSIZ];
+;;         __caddr_t ifru_data;
+;;       } ifr_ifru;
+;;   };
+(defcunion ifreq-data
+  (addr (:struct sockaddr-in))
+  (flags :uint16)
+  (ivalue :int32)
+  (mtu :int32))
+
+(defcstruct ifreq
+  (name :uint8 :count 16)
+  (data (:union ifreq-data)))
+
+;; unsigned int if_nametoindex(const char *ifname);
+(defcfun (%if-nametoindex "if_nametoindex") :uint32
+  (name :pointer))
+
+;; int ioctl(int fd, unsigned long request, void *argp);
+(defcfun (%ioctl "ioctl") :int32
+  (fd :int32)
+  (req :uint32)
+  (argp :pointer))
+
+(defconstant +iff-loopback+ #x8)
+(defconstant +iff-up+ 1)
+(defconstant +arphrd-ether+ 2)
+(defconstant +arphrd-loopback+ 772)
+(defconstant +siocgifmtu+ #x8921)
+(defconstant +siocgifhwaddr+ #x8927)
+#+freebsd(defconstant +af-link+ #x12)
+
+(defun list-adapters ()
+  (let ((ret nil))
+    (with-foreign-object (ifaddrs :pointer)
+      (let ((sts (%getifaddrs ifaddrs)))
+        ;; if something bad happened then bailout now 
+        (when (= sts +socket-error+) (get-last-error))
+
+        ;; now we getifaddrs and iterate over each of them 
+        (let ((fd (open-socket)))
+          (do ((ifa (mem-ref ifaddrs :pointer)
+                    (foreign-slot-value ifa '(:struct ifaddrs) 'next))
+               (ads nil))
+              ((null-pointer-p ifa) (setf ret ads))
+            (let ((ad (make-adapter)))
+              (setf (adapter-name ad)
+                    (foreign-string-to-lisp (foreign-slot-value ifa '(:struct ifaddrs) 'name)))
+              
+              (let ((flags (foreign-slot-value ifa '(:struct ifaddrs) 'flags)))
+                ;; check the status
+                (if (zerop (logand flags +iff-up+)) ;; IFF_UP
+                    (setf (adapter-status ad) :down)
+                    (setf (adapter-status ad) :up))
+
+                ;; check if loopback
+                (unless (zerop (logand flags +iff-loopback+)) ;; IFF_LOOPBACK
+                  (setf (adapter-type ad) :loopback)))
+
+              ;; get the address
+              (let ((ap (foreign-slot-value ifa '(:struct ifaddrs) 'addr)))
+                (let ((family #+freebsd(mem-ref ap :uint8 1)
+                              #-freebsd(mem-ref ap :uint16)))
+                  (cond
+                    ((= family +af-inet+)
+                     (let ((addr (mem-ref ap '(:struct sockaddr-in))))
+                       (push addr (adapter-unicast ad))))
+                    ((= family +af-inet6+)
+                     (let ((addr (mem-ref ap '(:struct sockaddr-in6))))
+                       (push addr (adapter-unicast ad))))
+                    #+freebsd
+                    ((= family +af-link+)
+                     ;; freebsd provides the physical address directly in the ifaddrs struct
+                     (let ((mac (make-array 6)))
+                       (dotimes (i 6)
+                         (setf (aref mac i) (mem-aref ap :uint8 (+ 4 i))))
+                       (setf (adapter-address ad) mac))))))
+
+              ;; get the index
+              (let ((index (%if-nametoindex (foreign-slot-value ifa '(:struct ifaddrs) 'name))))
+                (setf (adapter-index ad) index))
+
+              ;; get the hardware address and other ioctl data
+              (with-foreign-object (ifr '(:struct ifreq))            
+                ;; copy the interface name into the req struct
+                (lisp-string-to-foreign (adapter-name ad) ifr 16)
+
+                ;; get mtu
+                (let ((sts (%ioctl fd
+                                   +siocgifmtu+ ;; SIOCGIFMTU
+                                   ifr))
+                      (ifdata (foreign-slot-pointer ifr '(:struct ifreq) 'data)))
+                  (unless (= sts +socket-error+)
+                    (setf (adapter-mtu ad) (foreign-slot-value ifdata '(:union ifreq-data) 'mtu))))
+                
+                ;; have to get hardware address on linux by calling ioctl()
+                #+linux
+                (let ((sts (%ioctl fd
+                                   +siocgifhwaddr+ ;; SIOCGIFHWADDR
+                                   ifr))
+                      (ifdata (foreign-slot-pointer ifr '(:struct ifreq) 'data)))
+                  (unless (= sts +socket-error+)
+                    ;; get the hardware address out
+                    (let ((sa (foreign-slot-value ifdata '(:union ifreq-data) 'addr)))
+                      (let ((family (mem-ref sa :uint16))) 
+                        (cond
+                          ((= family +arphrd-ether+) ;; ARPHRD_ETHER
+                           (let ((addr (make-array 6)))
+                             (dotimes (i 6)
+                               (setf (aref addr i)
+                                     (mem-ref sa :uint8 (+ 2 i))))
+                             (setf (adapter-address ad) addr
+                                   (adapter-type ad) :ethernet)))
+                          ((= family +arphrd-loopback+) ;; ARPHRD_LOOPBACK
+                           (setf (adapter-type ad) :loopback))
+                          (t
+                           ;; unknown type
+                           (setf (adapter-type ad) family))))))))
+
+              (push ad ads)))
+          
+          ;; finally we close the dummy socket and free the interfaces
+          (close-socket fd))
+        (%freeifaddrs (mem-ref ifaddrs :pointer))))
+
+    ;; ret contains a list of interfaces i.e. we have one instance per IP address
+    ;; we want a list of adapters
+    (do ((alist ret (cdr alist))
+         (ads nil))
+        ((null alist) ads)
+      (let ((ad1 (car alist)))
+        ;; lookup this ad in the list of return ads. if it's alrady there then merge it
+        ;; otherwise we add it
+        (let ((rad (find (adapter-index ad1) ads :key #'adapter-index)))
+          (cond
+            (rad
+             ;; already there, merge
+             (setf (adapter-unicast rad)
+                   (append (adapter-unicast rad) (adapter-unicast ad1)))
+             (when (null (adapter-address rad))
+               (setf (adapter-address rad) (adapter-address ad1))))
+            (t
+             ;; not there yet, just push on
+             (push ad1 ads))))))))
+
+  
+
