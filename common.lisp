@@ -220,13 +220,13 @@ NAME ::= event name to test. If not supplied, indicates whether any event is pen
 (defun make-listening-stream-pollfd (fd &key (events 0) (revents 0))
   (make-instance 'listening-stream-pollfd :fd fd :events events :revents revents))
 
-(defmacro doevents ((pollfd events) poll-form &body body)
+(defmacro doevents ((pollfd event) poll-form &body body)
   "Evaluate the POLL-FORM and iterate over each of the pollfds with events pending.
 On each iteration, POLLFD will be bound to the associated pollfd strcuture and EVENTS will be bound
 to a list of symbols naming each pending event."
   `(dolist (,pollfd ,poll-form)
      (when (poll-event-p (pollfd-revents ,pollfd))
-       (let ((,events (poll-events (pollfd-revents ,pollfd))))
+       (dolist (,event (poll-events (pollfd-revents ,pollfd)))
          ,@body))))
 
 

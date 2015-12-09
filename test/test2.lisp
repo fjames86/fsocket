@@ -21,7 +21,8 @@
       ;; disable on loopback
       (setf (socket-option sock :ip :ip-multicast-loop) nil)
 
-      ;; select interface to send on
+      ;; select interface to send on 
+      (format t "Selecting interface ~A~%" (sockaddr-in-addr (car (adapter-unicast ad))))
       (setf (socket-option sock :ip :ip-multicast-if)
             (sockaddr-in-addr (car (adapter-unicast ad))))
 
@@ -62,7 +63,7 @@
 
 (defvar *mcaddr* (make-sockaddr-in :addr #(239 255 23 23) :port 9006))
 
-(defun mcast-test (mcaddr)
+(defun mcast-test (mcaddr &key (period 30))
   (let ((pc (open-poll))
         (rsock (mcast-recv-socket mcaddr))
         (ssocks (mapcan (lambda (ad)
@@ -77,7 +78,7 @@
            (do ((i 0 (1+ i))
                 (buffer (make-array 32 :initial-element 12))
                 (now (get-universal-time) (get-universal-time))
-                (next-send (+ (get-universal-time) 30)))
+                (next-send (+ (get-universal-time) period)))
                ((= i 100))
              (format t "Polling~%")
 
@@ -87,16 +88,15 @@
                  (setf (aref buffer i) 12))
                (dolist (s ssocks)
                  (socket-sendto s buffer mcaddr))
-               (setf next-send (+ next-send 30)))
+               (setf next-send (+ next-send period)))
              
              ;; poll for messages on the receiving socket
-             (doevents (pollfd events) (poll pc :timeout 1000)
-               (dolist (event events)
-                 (case event
-                   (:pollin
-                    ;; data to read
-                    (multiple-value-bind (count addr) (socket-recvfrom rsock buffer)
-                      (format t "Received ~A from ~A~%" count addr))))))))
+             (doevents (pollfd event) (poll pc :timeout 1000)
+               (case event
+                 (:pollin
+                  ;; data to read
+                  (multiple-value-bind (count addr) (socket-recvfrom rsock buffer)
+                    (format t "Received ~A from ~A~%" count addr)))))))
       
       ;; close the sockets
       (close-socket rsock)
