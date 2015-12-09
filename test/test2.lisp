@@ -69,7 +69,7 @@
                           (when (eq (adapter-type ad) :ethernet)
                             (list (mcast-send-socket ad))))
                         (list-adapters))))
-    ;; register the receviving socket 
+    ;; register the receiving socket 
     (poll-register pc (make-pollfd rsock :events (poll-events :pollin)))
     
     (unwind-protect
@@ -77,7 +77,7 @@
            (do ((i 0 (1+ i))
                 (buffer (make-array 32 :initial-element 12))
                 (now (get-universal-time) (get-universal-time))
-                (next-send 0))
+                (next-send (+ (get-universal-time) 30)))
                ((= i 100))
              (format t "Polling~%")
 
