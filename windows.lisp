@@ -1,3 +1,5 @@
+;;;; Copyright (c) Frank James 2015 <frank.a.james@gmail.com>
+;;;; This code is licensed under the MIT license.
 
 
 (in-package #:fsocket)
@@ -426,11 +428,11 @@ Retuns the number of bytes actually received, which can be less than the number 
   "Receive data from the socket.
 SOCK ::= socket.
 BUFFER ::= octet array
-START ::= start index
-END ::= end index.
+START ::= start index into BUFFER where received data will be placed.
+END ::= end index into BUFFER where received data will be placed.
 
 Returns (values count addr) where
-COUNT ::= number of octets actually received, which can be less tha nthe number requested.
+COUNT ::= number of octets actually received, which can be less than the number requested.
 ADDR ::= remote address from which the data was received.
 "
   (let ((count (- (or end (length buffer)) start)))

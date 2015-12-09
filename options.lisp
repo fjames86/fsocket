@@ -1,3 +1,5 @@
+;;;; Copyright (c) Frank James 2015 <frank.a.james@gmail.com>
+;;;; This code is licensed under the MIT license.
 
 
 (in-package #:fsocket)
@@ -129,6 +131,19 @@ VALUE ::= value to set."))
           (get-last-error)
           nil))))
 
+(defun set-socket-option-uint32 (sock level option value)
+  (with-foreign-object (vbuf :uint32)
+    (setf (mem-aref vbuf :uint32) value)
+    (let ((sts (%setsockopt sock 
+                            level
+                            option
+                            vbuf
+                            4)))
+      (if (= sts +socket-error+)
+          (get-last-error)
+          nil))))
+
+
 (defmethod (setf socket-option) (value sock (level (eql :socket)) (option (eql :acceptconn)))
   (set-socket-option-boolean sock +sol-socket+ +so-acceptconn+ value))
 
@@ -174,12 +189,17 @@ VALUE ::= value to set."))
 ;; }
 (defcstruct group-req
   (iface :uint32)
-  (addr :uint8 :count 32))
+  #+(or amd64 x86-64 x64)(padding1 :uint32)
+  (addr :uint8 :count #x84)) ;; sockaddr_storage is quite large 
 
 (defmethod (setf socket-option) (value sock (level (eql :ip)) (option (eql :mcast-join-group)))
   "VALUE ::= (index address) where INDEX is the interface index and ADDRESS is the multicast address to join."
   (destructuring-bind (index addr) value
     (with-foreign-object (req '(:struct group-req))
+      ;; memset( &req, 0, sizeof(req) );
+      (dotimes (i (foreign-type-size '(:struct group-req)))
+        (setf (mem-aref req :uint8 i) 0))
+      
       (setf (foreign-slot-value req '(:struct group-req) 'iface) index)
       (let ((p (foreign-slot-pointer req '(:struct group-req) 'addr)))
         (etypecase addr
@@ -209,7 +229,7 @@ VALUE ::= value to set."))
                    (ash (aref value 1) 16)
                    (ash (aref value 2) 8)
                    (aref value 3))))
-    (set-socket-option-int32 sock +ipproto-ip+ +ip-multicast-if+ v)))
+    (set-socket-option-uint32 sock +ipproto-ip+ +ip-multicast-if+ v)))
   
 (defmethod (setf socket-option) (value sock (level (eql :ip)) (option (eql :ip-multicast-loop)))
   "Set to use or not use loopback. Value is a boolean"

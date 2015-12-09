@@ -1,11 +1,14 @@
+;;;; Copyright (c) Frank James 2015 <frank.a.james@gmail.com>
+;;;; This code is licensed under the MIT license.
 
+;;; This file just shows basic usage by implementing an echo server for UDP and TCP.
 
 (defpackage #:fsocket.test1
   (:use #:cl #:fsocket))
 
 (in-package #:fsocket.test1)
 
-(defun udp-echo (port)
+(defun udp-echo (port timeout)
   "Implements a simple UDP echoing server. Serves one request then exits."
   (let ((pc (open-poll)))
     (unwind-protect
@@ -15,20 +18,23 @@
              (poll-register pc
                             (make-pollfd sock
                                          :events (poll-events :pollin))))
-           (dolist (pollfd (poll pc :timeout 5000))
-             (dolist (event (poll-events (pollfd-revents pollfd)))
-               (case event
-                 (:pollin
-                  ;; data to read
-                  (let ((buffer (make-array 1024)))
-                    (multiple-value-bind (count addr) (socket-recvfrom (pollfd-fd pollfd) buffer)
-                      (format t "Received ~A bytes from ~A~%" count addr)
-                      ;; echo back
-                      (let ((count (socket-sendto (pollfd-fd pollfd)
-                                                  buffer
-                                                  addr
-                                                  :start 0 :end count)))
-                        (format t "Replied with ~A bytes back to ~A~%" count addr)))))))))
+           (do ((i 0 (1+ i)))
+               ((= i 5))
+             (let ((fds (poll pc :timeout timeout)))
+               (dolist (pollfd fds)
+                 (dolist (event (poll-events (pollfd-revents pollfd)))
+                   (case event
+                     (:pollin
+                      ;; data to read
+                      (let ((buffer (make-array 1024)))
+                        (multiple-value-bind (count addr) (socket-recvfrom (pollfd-fd pollfd) buffer)
+                          (format t "Received ~A bytes from ~A~%" count addr)
+                          ;; echo back
+                          (let ((count (socket-sendto (pollfd-fd pollfd)
+                                                      buffer
+                                                      addr
+                                                      :start 0 :end count)))
+                            (format t "Replied with ~A bytes back to ~A~%" count addr)))))))))))
       (dolist (pollfd (poll-context-fds pc))
         (close-socket (pollfd-fd pollfd)))
       (close-poll pc))))

@@ -1,3 +1,5 @@
+;;;; Copyright (c) Frank James 2015 <frank.a.james@gmail.com>
+;;;; This code is licensed under the MIT license.
 
 
 (defpackage #:fsocket
@@ -10,14 +12,17 @@
            #:socket-listen
            #:socket-accept
            #:socket-shutdown
-           
+
+           ;; socket I/O
            #:socket-send
            #:socket-sendto
            #:socket-recv
            #:socket-recvfrom
-           
+
+           ;; [gs]ockopt
            #:socket-option
 
+           ;; polling 
            #:open-poll
            #:close-poll
            #:poll-register
@@ -26,17 +31,17 @@
            #:poll-context
            #:poll-context-fds
            
-           ;; other structures we might need
+           ;; pollfd class 
+           #:pollfd           
            #:make-pollfd                      
-           #:pollfd
-           
            #:datagram-pollfd
            #:make-datagram-pollfd
            #:stream-pollfd
            #:make-stream-pollfd           
            #:listening-stream-pollfd
            #:make-listening-stream-pollfd
-           
+
+           ;; pollfd accessors and related functions
            #:pollfd-fd
            #:pollfd-events
            #:pollfd-revents
@@ -44,22 +49,30 @@
            #:poll-event-p
            #:poll-events
            #:doevents
-           
+
+           ;; sockaddr-in struct 
            #:make-sockaddr-in
            #:sockaddr-in
            #:sockaddr-in-addr
            #:sockaddr-in-port
 
+           ;; sockaddr-in6 struct 
            #:make-sockaddr-in6
            #:sockaddr-in6
            #:sockaddr-in6-addr
            #:sockaddr-in6-port
            #:sockaddr-in6-scope
-           
+
+           ;; host network adapters
            #:list-adapters
+           #:adapter
+           #:adapter-name
+           #:adapter-type
+           #:adapter-address
+           #:adapter-index
+           #:adapter-unicast
+           #:adapter-status
+           #:adapter-mtu
            
-           ;; TODO
-           ;; get-host-by-name
-           ;; get-host-address
            ))
 
