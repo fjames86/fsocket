@@ -22,7 +22,7 @@
       (setf (socket-option sock :ip :ip-multicast-loop) nil)
 
       ;; select interface to send on 
-      (format t "Selecting interface ~A~%" (sockaddr-in-addr (car (adapter-unicast ad))))
+      (format t "Selecting interface ~A ~S ~%" (sockaddr-in-addr (car (adapter-unicast ad))) sock)
       (setf (socket-option sock :ip :ip-multicast-if)
             (sockaddr-in-addr (car (adapter-unicast ad))))
 
@@ -61,9 +61,9 @@
       sock)))
 
 
-(defvar *mcaddr* (make-sockaddr-in :addr #(239 255 23 23) :port 9006))
+(defparameter *mcaddr* (make-sockaddr-in :addr #(239 255 23 23) :port 9006))
 
-(defun mcast-test (mcaddr &key (period 30))
+(defun mcast-test (mcaddr &key (period 5))
   (let ((pc (open-poll))
         (rsock (mcast-recv-socket mcaddr))
         (ssocks (mapcan (lambda (ad)
@@ -79,7 +79,7 @@
                 (buffer (make-array 32 :initial-element 12))
                 (now (get-universal-time) (get-universal-time))
                 (next-send (+ (get-universal-time) period)))
-               ((= i 100))
+               ((= i 50))
              (format t "Polling~%")
 
              ;; periodically multicast a message on each interface
@@ -87,8 +87,9 @@
                (dotimes (i (length buffer))
                  (setf (aref buffer i) 12))
                (dolist (s ssocks)
+                 (format t "Sending on ~S~%" s)
                  (socket-sendto s buffer mcaddr))
-               (setf next-send (+ next-send period)))
+               (incf next-send period))
              
              ;; poll for messages on the receiving socket
              (doevents (pollfd event) (poll pc :timeout 1000)

@@ -40,9 +40,12 @@
 ;; GetLastError or WSAGetLastError?
 (defcfun (%get-last-error "GetLastError" :convention :stdcall) :long)
 
-(defun get-last-error ()
-  (let ((code (%get-last-error)))
+(defun get-last-error (&optional ecode)
+  (let ((code (or ecode (%get-last-error))))
     (error 'win-error :code code)))
+
+
+(defconstant +wsa-error-msgsize+ #x2738)
 
 ;; ------------------ startup -------------------------
 
@@ -401,7 +404,12 @@ Retuns the number of bytes actually received, which can be less than the number 
       (let ((sts (%recv sock p count 0)))
         (cond
           ((= sts +socket-error+)
-           (get-last-error))
+           (let ((ecode (%get-last-error)))
+             (if (= ecode +wsa-error-msgsize+) 
+                 ;; msg larger than buffer, bytes dropped!
+                 (progn (signal (make-condition 'fsocket-short-buffer))
+                        count)
+                 (get-last-error ecode))))
           (t
            (dotimes (i sts)
              (setf (aref buffer (+ start i))
@@ -448,7 +456,18 @@ ADDR ::= remote address from which the data was received.
                             alen)))
         (cond
           ((= sts +socket-error+)
-           (get-last-error))
+           (let ((ecode (%get-last-error)))
+             (if (= ecode +wsa-error-msgsize+) 
+                 ;; msg larger than buffer, bytes dropped!
+                 (progn (signal (make-condition 'fsocket-short-buffer))
+                        (let ((family (mem-aref a :uint16)))
+                          (cond
+                            ((= family +af-inet+)
+                             (values count (mem-aref a '(:struct sockaddr-in))))
+                            ((= family +af-inet6+)
+                             (values count (mem-aref a '(:struct sockaddr-in6))))
+                            (t (error 'fsocket-error :msg (format nil "Unknown address family ~A" family))))))
+                 (get-last-error ecode))))
           (t
            (dotimes (i sts)
              (setf (aref buffer (+ start i)) (mem-ref p :uint8 i)))
@@ -460,7 +479,7 @@ ADDR ::= remote address from which the data was received.
                ((= family +af-inet6+)
                 (let ((addr (mem-aref a '(:struct sockaddr-in6))))
                   (values sts addr)))
-               (t (error 'fsocket-error :msg (format nil "Unknown family ~A" family)))))))))))
+               (t (error 'fsocket-error :msg (format nil "Unknown address family ~A" family)))))))))))
 
 
 ;; -----------------------------------------------------
