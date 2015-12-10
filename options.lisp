@@ -89,6 +89,20 @@ VALUE ::= value to set."))
           (get-last-error)
           (mem-aref vbuf :int32)))))
 
+(defun get-socket-option-uint32 (sock level option)
+  (with-foreign-objects ((vbuf :uint32)
+                         (vlen :uint32))
+    (setf (mem-aref vlen :uint32) 4)
+    (let ((sts (%getsockopt sock 
+                            level
+                            option
+                            vbuf
+                            vlen)))
+      (if (= sts +socket-error+)
+          (get-last-error)
+          (mem-aref vbuf :uint32)))))
+
+
 (defmethod socket-option (sock (level (eql :socket)) (option (eql :acceptconn)))
   (get-socket-option-boolean sock +sol-socket+ +so-acceptconn+))
 
@@ -175,7 +189,7 @@ VALUE ::= value to set."))
 #+(or win32 windows)(defconstant +ip6-multicast-loop+ 11)
 #-(or win32 windows)(defconstant +ip6-multicast-loop+ 19)
 
-#+(or win32 windows)(defconstant +ip-multicast-if+ 11)
+#+(or win32 windows)(defconstant +ip-multicast-if+ 9)
 #-(or win32 windows)(defconstant +ip-multicast-if+ 32)
 #+(or win32 windows)(defconstant +ip6-multicast-if+ 9)
 #-(or win32 windows)(defconstant +ip6-multicast-if+ 17)
@@ -221,15 +235,24 @@ VALUE ::= value to set."))
   "Set the mutlicast TTL. Value is an integer."
   (set-socket-option-int32 sock +ipproto-ip+ +ip-multicast-ttl+ value))
 
+(defmethod socket-option (sock (level (eql :ip)) (option (eql :ip-multicast-if)))
+  ;; returns the default interface index in host-byte order 
+  (get-socket-option-uint32 sock +ipproto-ip+ +ip-multicast-if+))
+
 (defmethod (setf socket-option) (value sock (level (eql :ip)) (option (eql :ip-multicast-if)))
   "Set the local interface to use. VALUE is a 4-octet array indicating the local address."
-
-  ;; we convert the address to 32-bit integer in network-byte-order 
-  (let ((v (logior (ash (aref value 0) 24)
-                   (ash (aref value 1) 16)
-                   (ash (aref value 2) 8)
-                   (aref value 3))))
-    (set-socket-option-uint32 sock +ipproto-ip+ +ip-multicast-if+ v)))
+  (with-foreign-object (vbuf :int32)
+    ;; write the address into the buffer as a 32-bit big-endian integer
+    (dotimes (i 4)
+      (setf (mem-ref vbuf :uint8 i) (aref value i)))
+    (let ((sts (%setsockopt sock 
+                            +ipproto-ip+
+                            +ip-multicast-if+
+                            vbuf
+                            4)))
+      (if (= sts +socket-error+)
+          (get-last-error)
+          nil))))
   
 (defmethod (setf socket-option) (value sock (level (eql :ip)) (option (eql :ip-multicast-loop)))
   "Set to use or not use loopback. Value is a boolean"
