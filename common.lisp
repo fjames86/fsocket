@@ -205,21 +205,6 @@ NAME ::= event name to test. If not supplied, indicates whether any event is pen
       (not (zerop (logand event (poll-event name))))
       (not (zerop event))))
 
-(defclass datagram-pollfd (pollfd)
-  ())
-(defun make-datagram-pollfd (fd &key (events 0) (revents 0))
-  (make-instance 'datagram-pollfd :fd fd :events events :revents revents))
-
-(defclass stream-pollfd (pollfd)
-  ())
-(defun make-stream-pollfd (fd &key (events 0) (revents 0))
-  (make-instance 'stream-pollfd :fd fd :events events :revents revents))
-
-(defclass listening-stream-pollfd (pollfd)
-  ())
-(defun make-listening-stream-pollfd (fd &key (events 0) (revents 0))
-  (make-instance 'listening-stream-pollfd :fd fd :events events :revents revents))
-
 (defmacro doevents ((pollfd event) poll-form &body body)
   "Evaluate the POLL-FORM and iterate over each of the pollfds with events pending.
 On each iteration, POLLFD will be bound to the associated pollfd strcuture and EVENTS will be bound

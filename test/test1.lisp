@@ -47,9 +47,12 @@
     (format nil "~A-~A-~A ~A:~A:~A"
             year month date hour min sec)))
 
-(defclass test-stream-pollfd (stream-pollfd)
+(defclass test-stream-pollfd (pollfd)
   ((buffer :initarg :buffer :initform nil :accessor test-buffer)
    (count :initarg :count :initform 0 :accessor test-count)))
+
+(defclass test-listening-pollfd (pollfd)
+  ())
 
 (defun tcp-echo (port)
   (let ((pc (open-poll)))
@@ -59,8 +62,9 @@
            (let ((sock (open-socket :type :stream)))
              (socket-bind sock (make-sockaddr-in :port port))
              (socket-listen sock)
-             (poll-register pc (make-listening-stream-pollfd sock
-                                                             :events (poll-events :pollin))))
+             (poll-register pc (make-instance 'test-listening-pollfd
+                                              :fd sock
+                                              :events (poll-events :pollin))))
            
            ;; poll and process the events
            (do ((done nil)
@@ -71,14 +75,14 @@
                  (:pollin
                   ;; data to read
                   (etypecase pollfd
-                    (listening-stream-pollfd
+                    (test-listening-pollfd
                      ;; pollin on an listening socket means ready to accept a connection
                      (multiple-value-bind (conn addr) (socket-accept (pollfd-fd pollfd))
                        (format t "Accepted connection from ~A~%" addr)
                        (poll-register pc (make-instance 'test-stream-pollfd
                                                         :fd conn
                                                         :events (poll-events :pollin :pollout)))))
-                    (stream-pollfd
+                    (test-stream-pollfd
                      ;; read from the connection
                      (let ((buffer (make-array 512)))
                        (let ((count (socket-recv (pollfd-fd pollfd) buffer :start (test-count pollfd))))

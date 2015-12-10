@@ -34,12 +34,6 @@
            ;; pollfd class 
            #:pollfd           
            #:make-pollfd                      
-           #:datagram-pollfd
-           #:make-datagram-pollfd
-           #:stream-pollfd
-           #:make-stream-pollfd           
-           #:listening-stream-pollfd
-           #:make-listening-stream-pollfd
 
            ;; pollfd accessors and related functions
            #:pollfd-fd
