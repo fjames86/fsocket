@@ -73,6 +73,10 @@
            #:adapter-unicast
            #:adapter-status
            #:adapter-mtu
+
+           ;; conditions
+           #:fsocket-error
+           #:fsocket-short-buffer
            
            ))
 
