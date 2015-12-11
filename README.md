@@ -97,8 +97,8 @@ where I provide different subclasses for the listening TCP socket and its connec
 Because we are calling directly into the host API using CFFI, the implementation portability issues
 are handled by CFFI. I intend to support Windows, Linux, FreeBSD and maybe OSX.
 
-* Tested: SBCL 1.2.11 Windows 
-* Tested: SBCL 1.2.9 FreeBSD-10.2
+* Tested: SBCL x86-64 1.2.11 Windows 
+* Tested: SBCL x86-64 1.2.9 FreeBSD-10.2
 * TODO: SBCL Linux
 * TODO: CCL (Linux, OSX, FreeBSD)
 * TODO: LispWorks (Windows)
