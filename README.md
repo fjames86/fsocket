@@ -101,7 +101,7 @@ layout, adjusting constants etc.).
 
 * Tested: SBCL x86-64 1.2.11 Windows 
 * Tested: SBCL x86-64 1.2.9 FreeBSD-10.2
-* TODO: SBCL Linux
+* Tested: SBCL x86 1.2.7 Linux
 * TODO: CCL (Linux, OSX, FreeBSD)
 * TODO: LispWorks (Windows)
 * TODO: others
