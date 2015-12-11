@@ -569,7 +569,8 @@ should then be examined to determine which has data available.
                      (let ((mac (make-array 6)))
                        (dotimes (i 6)
                          (setf (aref mac i) (mem-aref ap :uint8 (+ 4 i))))
-                       (setf (adapter-address ad) mac))))))
+                       (setf (adapter-address ad) mac
+                             (adapter-type ad) :ethernet))))))
 
               ;; get the index
               (let ((index (%if-nametoindex (foreign-slot-value ifa '(:struct ifaddrs) 'name))))
@@ -633,7 +634,9 @@ should then be examined to determine which has data available.
              (setf (adapter-unicast rad)
                    (append (adapter-unicast rad) (adapter-unicast ad1)))
              (when (null (adapter-address rad))
-               (setf (adapter-address rad) (adapter-address ad1))))
+               (setf (adapter-address rad) (adapter-address ad1)))
+             (when (null (adapter-type rad))
+               (setf (adapter-type rad) (adapter-type ad1))))
             (t
              ;; not there yet, just push on
              (push ad1 ads))))))))
