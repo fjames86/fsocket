@@ -52,7 +52,8 @@
 #+(or win32 windows freebsd)(defconstant +ipv6-multicast-hops+ 10)
 #+linux(defconstant +ipv6-multicast-hops+ 18)
 
-(defconstant +sol-socket+ #xffff)
+#+(or win32 windows freebsd)(defconstant +sol-socket+ #xffff)
+#+linux(defconstant +sol-socket+ 1)
 
 ;; #define SO_DEBUG        0x0001          /* turn on debugging info recording */
 ;; #define SO_ACCEPTCONN   0x0002          /* socket has had listen() */
@@ -74,18 +75,36 @@
 ;; #define SO_REUSEPORT    0x0200          /* allow local address & port reuse */
 ;; #define SO_NO_OFFLOAD   0x4000          /* socket cannot be offloaded */
 ;;(defconstant +so-debug+ #x0001)
-(defconstant +so-acceptconn+ #x0002)
-(defconstant +so-reuseaddr+ #x0004)
+
+#+(or win32 windows freebsd)(defconstant +so-acceptconn+ #x0002)
+#+linux(defconstant +so-acceptconn+ 30)
+
+#+(or win32 windows freebsd)(defconstant +so-reuseaddr+ #x0004)
+#+linux(defconstant +so-reuseaddr+ #x0002)
+
 ;;(defconstant +so-keepalive+ #x0008)
 ;;(defconstant +so-dontroute+ #x0010)
-(defconstant +so-broadcast+ #x00020)
+
+#+(or win32 windows freebsd)(defconstant +so-broadcast+ #x00020)
+#+linux(defconstant +so-broadcast+ 6)
+
+
 ;;(defconstant +so-useloopback+ #x0040)
 ;;(defconstant +so-linger+ #x0080)
 ;;(defconstant +so-oobinline+ #x0100)
-(defconstant +so-sndbuf+ #x1001)
-(defconstant +so-rcvbuf+ #x1002)
-(defconstant +so-sndtimeo+ #x1005)
-(defconstant +so-rcvtimeo+ #x1006)
+
+#+(or win32 windows freebsd)(defconstant +so-sndbuf+ #x1001)
+#+linux(defconstant +so-sndbuf+ 7)
+
+#+(or win32 windows freebsd)(defconstant +so-rcvbuf+ #x1002)
+#+linux(defconstant +so-rcvbuf+ 8)
+
+#+(or win32 windows freebsd)(defconstant +so-sndtimeo+ #x1005)
+#+linux(defconstant +so-sndtimeo+ 21)
+
+#+(or win32 windows freebsd)(defconstant +so-rcvtimeo+ #x1006)
+#+linux(defconstant +so-rcvtimeo+ 20)
+
 ;;(defconstant +so-error+ #x1007)
 ;;(defconstant +so-type+ #x1008)
 ;;(defconstant +so-resuseport+ #x0200)

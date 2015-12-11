@@ -519,7 +519,10 @@ should then be examined to determine which has data available.
 
 (defconstant +iff-loopback+ #x8)
 (defconstant +iff-up+ 1)
-(defconstant +arphrd-ether+ 2)
+
+#+freebsd(defconstant +arphrd-ether+ 2)
+#+linux(defconstant +arphrd-ether+ 1)
+
 (defconstant +arphrd-loopback+ 772)
 (defconstant +siocgifmtu+ #x8921)
 (defconstant +siocgifhwaddr+ #x8927)
@@ -597,7 +600,7 @@ should then be examined to determine which has data available.
                       (ifdata (foreign-slot-pointer ifr '(:struct ifreq) 'data)))
                   (unless (= sts +socket-error+)
                     ;; get the hardware address out
-                    (let ((sa (foreign-slot-value ifdata '(:union ifreq-data) 'addr)))
+                    (let ((sa (foreign-slot-pointer ifdata '(:union ifreq-data) 'addr)))
                       (let ((family (mem-ref sa :uint16))) 
                         (cond
                           ((= family +arphrd-ether+) ;; ARPHRD_ETHER
