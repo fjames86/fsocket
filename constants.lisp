@@ -23,24 +23,34 @@
 (defconstant +ipproto-tcp+ 6)
 
 
+;; MCAST_JOIN_GROUP
 #+(or win32 windows)(defconstant +mcast-join-group+ 41) 
 #+linux(defconstant +mcast-join-group+ 42)
 #+freebsd(defconstant +mcast-join-group+ 80) 
 
+;; IP_MULTICAST_LOOP
 #+(or win32 windows freebsd)(defconstant +ip-multicast-loop+ 11)
 #+linux(defconstant +ip-multicast-loop+ 34)
 
+;; IPV6_MULTICAST_LOOP
 #+(or win32 windows)(defconstant +ip6-multicast-loop+ 11)
 #-(or win32 windows)(defconstant +ip6-multicast-loop+ 19)
 
+;; IP_MULTICAST_IF
 #+(or win32 windows freebsd)(defconstant +ip-multicast-if+ 9)
 #+linux(defconstant +ip-multicast-if+ 32)
 
+;; IPV6_MULTICAST_IF
 #+(or win32 windows freebsd)(defconstant +ip6-multicast-if+ 9)
 #+linux(defconstant +ip6-multicast-if+ 17)
 
+;; IP_MULTICAST_TTL
 #+(or win32 windows freebsd)(defconstant +ip-multicast-ttl+ 10)
 #+linux(defconstant +ip-multicast-ttl+ 33)
+
+;; IPV6_MULTICAST_HOPS
+#+(or win32 windows freebsd)(defconstant +ipv6-multicast-hops+ 10)
+#+linux(defconstant +ipv6-multicast-hops+ 18)
 
 (defconstant +sol-socket+ #xffff)
 
@@ -83,6 +93,8 @@
 
 (defconstant +ipproto-tcp+ 6)
 (defconstant +tcp-nodelay+ 1)
+
+
 
 
 

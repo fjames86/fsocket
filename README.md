@@ -95,7 +95,9 @@ where I provide different subclasses for the listening TCP socket and its connec
 
 # 5. Implementations and operatings systems
 Because we are calling directly into the host API using CFFI, the implementation portability issues
-are handled by CFFI. I intend to support Windows, Linux, FreeBSD and maybe OSX.
+are handled by CFFI. I intend to support Windows, Linux, FreeBSD and maybe OSX. Currently the following have been
+tested. A small amount of work will be required to support other systems (e.g. checking structs have the same
+layout, adjusting constants etc.). 
 
 * Tested: SBCL x86-64 1.2.11 Windows 
 * Tested: SBCL x86-64 1.2.9 FreeBSD-10.2
