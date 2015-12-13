@@ -40,7 +40,13 @@
         (close-socket (pollfd-fd pollfd)))
       (close-poll pc))))
 
-
+(defun udp-send-test (port)
+  (let ((fd (open-socket :type :datagram))
+	(buffer (make-array 16 :initial-element 0)))
+    (socket-bind fd (make-sockaddr-in))
+    (socket-sendto fd buffer (make-sockaddr-in :addr #(127 0 0 1) :port port))
+    (close-socket fd)))
+    
 ;; ----------------------------------------
 
 (defun universal-time-string ()
@@ -114,3 +120,18 @@
         (close-socket (pollfd-fd pollfd)))
       ;; close the poll context 
       (close-poll pc))))
+
+(defun tcp-send-test (port)
+  (let ((fd (open-socket :type :stream))
+	(buffer (make-array 16 :initial-element 0)))
+    (unwind-protect 
+	 (progn
+	   (socket-bind fd (make-sockaddr-in))
+	   (socket-connect fd (make-sockaddr-in :addr #(127 0 0 1) :port port))
+	   (format t "Connected~%")
+	   (let ((count (socket-send fd buffer)))
+	     (format t "Sent ~A bytes~%" count))
+	   (let ((count (socket-recv fd buffer)))
+	     (format t "Received ~A bytes~%" count))
+	   (socket-shutdown fd :both))
+      (close-socket fd))))

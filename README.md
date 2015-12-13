@@ -19,6 +19,16 @@ Basically you write exactly the same sort of code you would if writing in C.
 * SOCKET-OPTION :: get a socket option.
 * (SETF SOCKET-OPTION) :: set a socket option.
 
+```
+;; open the socket 
+(let ((fd (open-socket :type :datagram)))
+  (socket-bind fd (make-sockaddr-in))
+  ;; do something with the socket 
+
+  ;; close it
+  (close-socket fd))
+```
+
 ## 2.2 Socket I/O
 There are two types of I/O: send/recv for connected sockets and sendto/recvfrom for unconnected sockets.
 
@@ -26,6 +36,17 @@ There are two types of I/O: send/recv for connected sockets and sendto/recvfrom 
 * SOCKET-SENDTO :: send a buffer on an unconnected socket.
 * SOCKET-RECV :: receive on a connected socket.
 * SOCKET-RECVFROM :: receive on an unconnected socket. 
+
+```
+(let ((fd (open-socket :type :datagram))
+      (buffer (make-array 1024)))
+  (socket-bind fd (make-sockaddr-in :port 9000))
+  (multiple-value-bind (count raddr) (socket-recvfrom fd buffer)
+    (format t "Received ~A bytes from ~A~%" count raddr)
+    (socket-sendto fd buffer raddr :end count))
+  
+  (close-socket fd))
+```
 
 ## 2.3 Polling
 Provides an API based on POSIX poll(). On systems where this is available (i.e. everywhere except Windows)
@@ -38,6 +59,15 @@ events are mapping to poll events.
 * POLL-UNREGISTER :: unregister a socket from the poll context.
 * POLL :: wait for something to happen.
 * DOEVENTS :: iterate over each of the fds with events pending.
+
+```
+(let ((pc (open-poll)))
+  (poll-register pc (make-instance 'pollfd :fd fd :events (poll-events :pollin)))
+  (doevents (pollfd event) (poll pc :timeout 1000)
+    ;; process the events
+    )
+  (close-poll pc))
+```
 
 ## 2.4 Hardware adapters
 
@@ -92,18 +122,17 @@ the socket, for instance and receive buffer or other contextual information. All
 POLLFD and provide instances of your own class to POLL-REGISTER. For an example see TCP-ECHO in test/test1.lisp
 where I provide different subclasses for the listening TCP socket and its connections. 
 
-
 # 5. Implementations and operatings systems
 Because we are calling directly into the host API using CFFI, the implementation portability issues
 are handled by CFFI. I intend to support Windows, Linux, FreeBSD and maybe OSX. Currently the following have been
 tested. A small amount of work will be required to support other systems (e.g. checking structs have the same
 layout, adjusting constants etc.). 
 
-* Tested: SBCL x86-64 1.2.11 Windows 
+* Tested: SBCL x86-64 1.2.11 Windows 7
 * Tested: SBCL x86-64 1.2.9 FreeBSD-10.2
-* Tested: SBCL x86 1.2.7 Linux
-* TODO: CCL (Linux, OSX, FreeBSD)
-* TODO: LispWorks (Windows)
+* Tested: SBCL x86 1.2.7 Linux 
+* TODO: CCL (Windows, Linux, OSX, FreeBSD)
+* Tested: LispWorks Personal Edition 6.1.1 Windows 8.1
 * TODO: others
 
 # 6. TODO

@@ -153,8 +153,6 @@
           (htons (aref (sockaddr-in6-addr saddr) i))))
   ptr)
 
-
-
 ;; --------------------------
 
 ;; Q: should the events be a bitmask or a list of symbols?
