@@ -71,7 +71,7 @@
                             (list (mcast-send-socket ad))))
                         (list-adapters))))
     ;; register the receiving socket 
-    (poll-register pc (make-pollfd rsock :events (poll-events :pollin)))
+    (poll-register pc (make-instance 'pollfd :fd rsock :events (poll-events :pollin)))
     
     (unwind-protect
          (progn

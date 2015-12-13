@@ -646,6 +646,8 @@ ADDR ::= remote address from which the data was received.
 
 (defun poll-register (pc pollfd)
   "Register a pollfd descriptor with the poll context."
+  (declare (type poll-context pc)
+	   (type pollfd pollfd))
 
   ;; register with the event
   (apply #'wsa-event-select
@@ -660,6 +662,8 @@ ADDR ::= remote address from which the data was received.
 
 (defun poll-unregister (pc pollfd)
   "Unregister a pollfd descriptor from the poll context."
+  (declare (type poll-context pc)
+	   (type pollfd pollfd))
 
   ;; all we have to do is remove it from the list of descriptors.
   ;; We assume the user has called close-socket on the fd
@@ -671,14 +675,13 @@ ADDR ::= remote address from which the data was received.
 ;;(defconstant +wsa-wait-event-0+ 0)
 (defconstant +wsa-wait-timeout+ 258)
 
-(defun poll (pc &key timeout ready-only)
+(defun poll (pc &key timeout)
   "Poll the sockets registered with the poll context for network events.
 
 PC ::= poll context as returne from OPEN-POLL.
-TIMEOUT ::= if supplied time in milliseconds to wait. If not supplied defaults to infinity..
-READY-ONLY ::= if true POLL will return a freshly consed list of POLLFD descriptors for only those
-sockets with events pending. If false the original pollfd list will be returned, each pollfd structure 
-should then be examined to determine which has data available.
+TIMEOUT ::= if supplied time in milliseconds to wait. If not supplied defaults to infinity.
+
+Returns a list of registered pollfd structures. Users should check the REVENTS slot for pending events.
 "
   (declare (type poll-context pc)
            (type (or null integer) timeout))
@@ -699,24 +702,13 @@ should then be examined to determine which has data available.
          (get-last-error))))
     ;; now enumerate the events
     (do ((fds (poll-context-fds pc) (cdr fds))
-         (ret (if ready-only nil (poll-context-fds pc))))
+         (ret (poll-context-fds pc)))
         ((null fds) ret)
       (let ((revents (apply #'poll-events
                             ;; wsa-enum-network-events returns a list of pollfd event names, i.e. :pollin etc
                             (wsa-enum-network-events (pollfd-fd (car fds))
                                                      (poll-context-event pc)))))
-        (cond
-          (ready-only
-           (unless (zerop revents)
-             (push
-              (make-pollfd (pollfd-fd (car fds))
-                           :events 0
-                           :revents revents)
-              ret)))
-          (t
-           (if (zerop revents)
-               (setf (pollfd-revents (car fds)) 0)
-               (setf (pollfd-revents (car fds)) revents))))))))
+	(setf (pollfd-revents (car fds)) revents)))))
 
 
 ;; -------------------------------------------------
@@ -1055,3 +1047,56 @@ should then be examined to determine which has data available.
                     ;; (otherwise sts))))
                      
           (push ad ret))))))
+
+
+;; --------------- DNS -------------------
+
+;; struct hostent {
+;;   char FAR      *h_name;
+;;   char FAR  FAR **h_aliases;
+;;   short         h_addrtype;
+;;   short         h_length;
+;;   char FAR  FAR **h_addr_list;
+;; }
+;; (defcstruct hostent 
+;;   (name :pointer)
+;;   (aliases :pointer)
+;;   (addrtype :int16)
+;;   (len :int16)
+;;   (addrs :pointer))
+
+;; struct hostent* FAR gethostbyname(
+;;   _In_ const char *name
+;; );
+;; (defcfun (%gethostbyname "gethostbyname")
+;;     :pointer
+;;   (name :pointer))
+
+;; (defun get-host-by-name (name)
+;;   "Lookup the known addresses for the host named NAME. Returns a list of SOCKADDR-IN or SOCKADDR-IN6 structures."
+;;   (with-foreign-string (n name)
+;;     (let ((hent (%gethostbyname n)))
+;;       (cond
+;; 	((null-pointer-p hent)
+;; 	 (get-last-error))
+;; 	(t 	 
+;; 	 (do ((addrs nil)
+;; 	      (family (foreign-slot-value hent '(:struct hostent) 'addrtype))
+;; 	      (ads (foreign-slot-value hent '(:struct hostent) 'addrs))
+;; 	      (i 0 (1+ i)))
+;; 	     ((null-pointer-p (mem-aref ads :pointer i))
+;; 	      addrs)
+;; 	   (let ((a (mem-aref ads :pointer i)))
+;; 	     (cond
+;; 	       ((= family +af-inet+)
+;; 		(let ((addr (make-array 4)))
+;; 		  (dotimes (i 4)
+;; 		    (setf (aref addr i) (mem-aref a :uint8 i)))
+;; 		  (push (make-sockaddr-in :addr addr) addrs)))
+;; 	       ((= family +af-inet6+)
+;; 		(let ((addr (make-array 8)))
+;; 		  (dotimes (i 8)
+;; 		    (setf (aref addr i) (mem-aref a :uint16 i)))
+;; 		  (push (make-sockaddr-in6 :addr addr) addrs)))
+;; 	       (t 
+;; 		(error 'fsocket-error :msg (format nil "Unknown address family ~A" family)))))))))))

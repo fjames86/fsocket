@@ -16,8 +16,9 @@
            (let ((sock (open-socket :type :datagram)))
              (socket-bind sock (make-sockaddr-in :port port))
              (poll-register pc
-                            (make-pollfd sock
-                                         :events (poll-events :pollin))))
+                            (make-instance 'pollfd
+					   :fd sock
+					   :events (poll-events :pollin))))
            (do ((i 0 (1+ i)))
                ((= i 5))
              (let ((fds (poll pc :timeout timeout)))

@@ -156,12 +156,12 @@
 
 ;; --------------------------
 
+;; Q: should the events be a bitmask or a list of symbols?
+
 (defclass pollfd ()
   ((fd :initarg :fd :initform -1 :accessor pollfd-fd)
    (events :initarg :events :initform 0 :accessor pollfd-events)
    (revents :initarg :revents :initform 0 :accessor pollfd-revents)))
-(defun make-pollfd (fd &key (events 0) (revents 0))
-  (make-instance 'pollfd :fd fd :events events :revents revents))
 
 (defun poll-event (int-or-sym)
   "Map an event name to an event flag or vice versa."

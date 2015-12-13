@@ -381,10 +381,15 @@ ADDR ::= remote address from which the data was received.
 
 (defun poll-register (pc pollfd)
   "Register a pollfd descriptor with a poll context."
+  (declare (type poll-context pc)
+	   (type pollfd pollfd))
   (push pollfd (poll-context-fds pc)))
 
 (defun poll-unregister (pc pollfd)
   "Unregister a pollfd descriptor from a poll context."
+  (declare (type poll-context pc)
+	   (type pollfd pollfd))
+
   (setf (poll-context-fds pc)
         (remove pollfd (poll-context-fds pc)))
   nil)
@@ -395,14 +400,13 @@ ADDR ::= remote address from which the data was received.
   (count :int32)
   (timeout :int32))
 
-(defun poll (pc &key timeout ready-only)
+(defun poll (pc &key timeout)
   "Poll the sockets registered with the poll context for network events.
 
 PC ::= poll context as returne from OPEN-POLL.
-TIMEOUT ::= if supplied time in milliseconds to wait. If not supplied defaults to infinity..
-READY-ONLY ::= if true POLL will return a freshly consed list of POLLFD descriptors for only those
-sockets with events pending. If false the original pollfd list will be returned, each pollfd structure 
-should then be examined to determine which has data available.
+TIMEOUT ::= if supplied time in milliseconds to wait. If not supplied defaults to infinity.
+
+Returns a list of registered pollfd structures. Users should check the REVENTS slot for pending events.
 "
   (declare (type poll-context pc)
            (type (or null integer) timeout))
@@ -423,14 +427,12 @@ should then be examined to determine which has data available.
           (t
            (do ((i 0 (1+ i))
                 (%fds fds (cdr %fds))
-                (ret (if ready-only nil fds)))
+                (ret fds))
                ((null %fds) ret)
              (let ((revents (foreign-slot-value (inc-pointer p (* i (foreign-type-size '(:struct pollfd))))
-                                                '(:struct pollfd) 'revents)))
-               (unless (zerop revents)
-                 (if ready-only
-                     (push (mem-aref p '(:struct pollfd) i) ret)
-                     (setf (pollfd-revents (car %fds)) revents)))))))))))
+                                                '(:struct pollfd) 
+						'revents)))
+	       (setf (pollfd-revents (car %fds)) revents)))))))))
 
 
 

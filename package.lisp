@@ -33,7 +33,6 @@
            
            ;; pollfd class 
            #:pollfd           
-           #:make-pollfd                      
 
            ;; pollfd accessors and related functions
            #:pollfd-fd
@@ -45,14 +44,16 @@
            #:doevents
 
            ;; sockaddr-in struct 
-           #:make-sockaddr-in
            #:sockaddr-in
+           #:make-sockaddr-in
+	   #:sockaddr-in-p
            #:sockaddr-in-addr
            #:sockaddr-in-port
 
            ;; sockaddr-in6 struct 
-           #:make-sockaddr-in6
            #:sockaddr-in6
+           #:make-sockaddr-in6
+	   #:sockaddr-in6-p
            #:sockaddr-in6-addr
            #:sockaddr-in6-port
            #:sockaddr-in6-scope
