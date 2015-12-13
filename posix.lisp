@@ -1,6 +1,8 @@
 ;;;; Copyright (c) Frank James 2015 <frank.a.james@gmail.com>
 ;;;; This code is licensed under the MIT license.
 
+;;; This file defines all the stuff for posix platforms (Linux,FreeBSD, maybe OSX one day)
+
 (in-package #:fsocket)
 
 ;; --------------------------------------
