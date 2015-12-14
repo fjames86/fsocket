@@ -24,35 +24,43 @@
 
 
 ;; MCAST_JOIN_GROUP
-#+(or win32 windows)(defconstant +mcast-join-group+ 41) 
+#+(or win32 windows)(defconstant +mcast-join-group+ 41)
 #+linux(defconstant +mcast-join-group+ 42)
 #+freebsd(defconstant +mcast-join-group+ 80) 
 
 ;; IP_MULTICAST_LOOP
-#+(or win32 windows freebsd)(defconstant +ip-multicast-loop+ 11)
+#+(or win32 windows)(defconstant +ip-multicast-loop+ 11)
+#+freebsd(defconstant +ip-multicast-loop+ 11)
 #+linux(defconstant +ip-multicast-loop+ 34)
 
 ;; IPV6_MULTICAST_LOOP
 #+(or win32 windows)(defconstant +ip6-multicast-loop+ 11)
-#-(or win32 windows)(defconstant +ip6-multicast-loop+ 19)
+#+freebsd(defconstant +ip6-multicast-loop+ 19)
+#+linux(defconstant +ip6-multicast-loop+ 19)
 
 ;; IP_MULTICAST_IF
-#+(or win32 windows freebsd)(defconstant +ip-multicast-if+ 9)
+#+(or win32 windows)(defconstant +ip-multicast-if+ 9)
+#+freebsd(defconstant +ip-multicast-if+ 9)
 #+linux(defconstant +ip-multicast-if+ 32)
 
 ;; IPV6_MULTICAST_IF
-#+(or win32 windows freebsd)(defconstant +ip6-multicast-if+ 9)
+#+(or win32 windows)(defconstant +ip6-multicast-if+ 9)
+#+freebsd(defconstant +ip6-multicast-if+ 9)
 #+linux(defconstant +ip6-multicast-if+ 17)
 
 ;; IP_MULTICAST_TTL
-#+(or win32 windows freebsd)(defconstant +ip-multicast-ttl+ 10)
+#+(or win32 windows)(defconstant +ip-multicast-ttl+ 10)
+#+freebsd(defconstant +ip-multicast-ttl+ 10)
 #+linux(defconstant +ip-multicast-ttl+ 33)
 
 ;; IPV6_MULTICAST_HOPS
-#+(or win32 windows freebsd)(defconstant +ipv6-multicast-hops+ 10)
+#+(or win32 windows)(defconstant +ipv6-multicast-hops+ 10)
+#+freebsd(defconstant +ipv6-multicast-hops+ 10)
 #+linux(defconstant +ipv6-multicast-hops+ 18)
 
-#+(or win32 windows freebsd)(defconstant +sol-socket+ #xffff)
+;; SOL_SOCKET 
+#+(or win32 windows)(defconstant +sol-socket+ #xffff)
+#+freebsd(defconstant +sol-socket+ #xffff)
 #+linux(defconstant +sol-socket+ 1)
 
 ;; #define SO_DEBUG        0x0001          /* turn on debugging info recording */
@@ -76,33 +84,46 @@
 ;; #define SO_NO_OFFLOAD   0x4000          /* socket cannot be offloaded */
 ;;(defconstant +so-debug+ #x0001)
 
-#+(or win32 windows freebsd)(defconstant +so-acceptconn+ #x0002)
+;; SO_ACCEPTCONN
+#+(or win32 windows)(defconstant +so-acceptconn+ #x0002)
+#+freebsd(defconstant +so-acceptconn+ #x0002)
 #+linux(defconstant +so-acceptconn+ 30)
 
-#+(or win32 windows freebsd)(defconstant +so-reuseaddr+ #x0004)
+;; SO_REUSEADDR
+#+(or win32 windows)(defconstant +so-reuseaddr+ #x0004)
+#+freebsd(defconstant +so-reuseaddr+ #x0004)
 #+linux(defconstant +so-reuseaddr+ #x0002)
 
 ;;(defconstant +so-keepalive+ #x0008)
 ;;(defconstant +so-dontroute+ #x0010)
 
-#+(or win32 windows freebsd)(defconstant +so-broadcast+ #x00020)
+;; SO_BROADCAST 
+#+(or win32 windows)(defconstant +so-broadcast+ #x00020)
+#+freebsd(defconstant +so-broadcast+ #x00020)
 #+linux(defconstant +so-broadcast+ 6)
-
 
 ;;(defconstant +so-useloopback+ #x0040)
 ;;(defconstant +so-linger+ #x0080)
 ;;(defconstant +so-oobinline+ #x0100)
 
-#+(or win32 windows freebsd)(defconstant +so-sndbuf+ #x1001)
+;; SO_SNDBUF
+#+(or win32 windows)(defconstant +so-sndbuf+ #x1001)
+#+freebsd(defconstant +so-sndbuf+ #x1001)
 #+linux(defconstant +so-sndbuf+ 7)
 
-#+(or win32 windows freebsd)(defconstant +so-rcvbuf+ #x1002)
+;; SO_RCVBUF
+#+(or win32 windows)(defconstant +so-rcvbuf+ #x1002)
+#+freebsd(defconstant +so-rcvbuf+ #x1002)
 #+linux(defconstant +so-rcvbuf+ 8)
 
-#+(or win32 windows freebsd)(defconstant +so-sndtimeo+ #x1005)
+;; SO_SNDTIMEO
+#+(or win32 windows)(defconstant +so-sndtimeo+ #x1005)
+#+freebsd(defconstant +so-sndtimeo+ #x1005)
 #+linux(defconstant +so-sndtimeo+ 21)
 
-#+(or win32 windows freebsd)(defconstant +so-rcvtimeo+ #x1006)
+;; SO_RCVTIMEO
+#+(or win32 windows)(defconstant +so-rcvtimeo+ #x1006)
+#+freebsd(defconstant +so-rcvtimeo+ #x1006)
 #+linux(defconstant +so-rcvtimeo+ 20)
 
 ;;(defconstant +so-error+ #x1007)
@@ -110,7 +131,6 @@
 ;;(defconstant +so-resuseport+ #x0200)
 ;;(defconstant +so-no-offload+ #x4000)
 
-(defconstant +ipproto-tcp+ 6)
 (defconstant +tcp-nodelay+ 1)
 
 
