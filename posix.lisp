@@ -149,8 +149,8 @@ ADDR ::= address of the connected socket."
         ((invalid-socket-p sts)
          (get-last-error))
         (t
-         (let ((family #+freebsd(mem-aref buffer :uint8 1)
-                       #-freebsd(mem-aref buffer :uint16)))
+         (let ((family #+(or freebsd darwin)(mem-aref buffer :uint8 1)
+                       #-(or freebsd darwin)(mem-aref buffer :uint16)))
            (cond 
              ((= family +af-inet+)
               (let ((addr (mem-aref buffer '(:struct sockaddr-in))))
@@ -318,8 +318,8 @@ ADDR ::= remote address from which the data was received.
           (t
            (dotimes (i sts)
              (setf (aref buffer (+ start i)) (mem-ref p :uint8 i)))
-           (let ((family #+freebsd(mem-aref a :uint8 1)
-                         #-freebsd(mem-aref a :uint16)))
+           (let ((family #+(or freebsd darwin)(mem-aref a :uint8 1)
+                         #-(or freebsd darwin)(mem-aref a :uint16)))
              (cond
                ((= family +af-inet+)
                 (let ((addr (mem-aref a '(:struct sockaddr-in))))
@@ -568,8 +568,8 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 
               ;; get the address
               (let ((ap (foreign-slot-value ifa '(:struct ifaddrs) 'addr)))
-                (let ((family #+freebsd(mem-ref ap :uint8 1)
-                              #-freebsd(mem-ref ap :uint16)))
+                (let ((family #+(or freebsd darwin)(mem-ref ap :uint8 1)
+                              #-(or freebsd darwin)(mem-ref ap :uint16)))
                   (cond
                     ((= family +af-inet+)
                      (let ((addr (mem-ref ap '(:struct sockaddr-in))))
