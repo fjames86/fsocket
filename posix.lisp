@@ -526,11 +526,18 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 
 #+freebsd(defconstant +arphrd-ether+ 2)
 #+linux(defconstant +arphrd-ether+ 1)
+#+darwin(defconstant +arphrd-ether+ 1)
 
-(defconstant +arphrd-loopback+ 772)
-(defconstant +siocgifmtu+ #x8921)
-(defconstant +siocgifhwaddr+ #x8927)
+#+linux(defconstant +arphrd-loopback+ 772)
+
+#+(or win32 windows)(defconstant +siocgifmtu+ #x8921)
+#+linux(defconstant +siocgifmtu+ #x8921)
+#+freebsd(defconstant +siocgifmtu+ #x8921)
+#+darwin(defconstant +siocgifmtu+ #xC0206933)
+
+#+linux(defconstant +siocgifhwaddr+ #x8927)
 #+freebsd(defconstant +af-link+ #x12)
+#+darwin(defconstant +af-link+ #x12)
 
 (defun list-adapters ()
   (let ((ret nil))
@@ -570,7 +577,7 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
                     ((= family +af-inet6+)
                      (let ((addr (mem-ref ap '(:struct sockaddr-in6))))
                        (push addr (adapter-unicast ad))))
-                    #+freebsd
+                    #+(or freebsd darwin)
                     ((= family +af-link+)
                      ;; freebsd provides the physical address directly in the ifaddrs struct
                      (let ((mac (make-array 6)))

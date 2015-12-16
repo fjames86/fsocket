@@ -12,6 +12,7 @@
 #+(or win32 windows)(defconstant +af-inet6+ 23)
 #+linux(defconstant +af-inet6+ 10)
 #+freebsd(defconstant +af-inet6+ 28)
+#+darwin(defconstant +af-inet6+ 30)
 
 (defconstant +sock-stream+ 1)
 (defconstant +sock-dgram+ 2)
@@ -26,42 +27,50 @@
 ;; MCAST_JOIN_GROUP
 #+(or win32 windows)(defconstant +mcast-join-group+ 41)
 #+linux(defconstant +mcast-join-group+ 42)
-#+freebsd(defconstant +mcast-join-group+ 80) 
+#+freebsd(defconstant +mcast-join-group+ 80)
+#+darwin(defconstant +mcast-join-group+ 80) 
 
 ;; IP_MULTICAST_LOOP
 #+(or win32 windows)(defconstant +ip-multicast-loop+ 11)
-#+freebsd(defconstant +ip-multicast-loop+ 11)
 #+linux(defconstant +ip-multicast-loop+ 34)
+#+freebsd(defconstant +ip-multicast-loop+ 11)
+#+darwin(defconstant +ip-multicast-loop+ 11)
 
 ;; IPV6_MULTICAST_LOOP
 #+(or win32 windows)(defconstant +ip6-multicast-loop+ 11)
-#+freebsd(defconstant +ip6-multicast-loop+ 19)
 #+linux(defconstant +ip6-multicast-loop+ 19)
+#+freebsd(defconstant +ip6-multicast-loop+ 19)
+#+darwin(defconstant +ip6-multicast-loop+ 19)
 
 ;; IP_MULTICAST_IF
 #+(or win32 windows)(defconstant +ip-multicast-if+ 9)
-#+freebsd(defconstant +ip-multicast-if+ 9)
 #+linux(defconstant +ip-multicast-if+ 32)
+#+freebsd(defconstant +ip-multicast-if+ 9)
+#+darwin(defconstant +ip-multicast-if+ 9)
 
 ;; IPV6_MULTICAST_IF
 #+(or win32 windows)(defconstant +ip6-multicast-if+ 9)
-#+freebsd(defconstant +ip6-multicast-if+ 9)
 #+linux(defconstant +ip6-multicast-if+ 17)
+#+freebsd(defconstant +ip6-multicast-if+ 9)
+#+darwin(defconstant +ip6-multicast-if+ 9)
 
 ;; IP_MULTICAST_TTL
 #+(or win32 windows)(defconstant +ip-multicast-ttl+ 10)
-#+freebsd(defconstant +ip-multicast-ttl+ 10)
 #+linux(defconstant +ip-multicast-ttl+ 33)
+#+freebsd(defconstant +ip-multicast-ttl+ 10)
+#+darwin(defconstant +ip-multicast-ttl+ 10)
 
 ;; IPV6_MULTICAST_HOPS
 #+(or win32 windows)(defconstant +ipv6-multicast-hops+ 10)
-#+freebsd(defconstant +ipv6-multicast-hops+ 10)
 #+linux(defconstant +ipv6-multicast-hops+ 18)
+#+freebsd(defconstant +ipv6-multicast-hops+ 10)
+#+darwin(defconstant +ipv6-multicast-hops+ 10)
 
 ;; SOL_SOCKET 
 #+(or win32 windows)(defconstant +sol-socket+ #xffff)
-#+freebsd(defconstant +sol-socket+ #xffff)
 #+linux(defconstant +sol-socket+ 1)
+#+freebsd(defconstant +sol-socket+ #xffff)
+#+darwin(defconstant +sol-socket+ #xffff)
 
 ;; #define SO_DEBUG        0x0001          /* turn on debugging info recording */
 ;; #define SO_ACCEPTCONN   0x0002          /* socket has had listen() */
@@ -86,21 +95,24 @@
 
 ;; SO_ACCEPTCONN
 #+(or win32 windows)(defconstant +so-acceptconn+ #x0002)
-#+freebsd(defconstant +so-acceptconn+ #x0002)
 #+linux(defconstant +so-acceptconn+ 30)
+#+freebsd(defconstant +so-acceptconn+ #x0002)
+#+darwin(defconstant +so-acceptconn+ #x0002)
 
 ;; SO_REUSEADDR
 #+(or win32 windows)(defconstant +so-reuseaddr+ #x0004)
-#+freebsd(defconstant +so-reuseaddr+ #x0004)
 #+linux(defconstant +so-reuseaddr+ #x0002)
+#+freebsd(defconstant +so-reuseaddr+ #x0004)
+#+darwin(defconstant +so-reuseaddr+ #x0004)
 
 ;;(defconstant +so-keepalive+ #x0008)
 ;;(defconstant +so-dontroute+ #x0010)
 
 ;; SO_BROADCAST 
 #+(or win32 windows)(defconstant +so-broadcast+ #x00020)
-#+freebsd(defconstant +so-broadcast+ #x00020)
 #+linux(defconstant +so-broadcast+ 6)
+#+freebsd(defconstant +so-broadcast+ #x00020)
+#+darwin(defconstant +so-broadcast+ #x00020)
 
 ;;(defconstant +so-useloopback+ #x0040)
 ;;(defconstant +so-linger+ #x0080)
@@ -108,23 +120,27 @@
 
 ;; SO_SNDBUF
 #+(or win32 windows)(defconstant +so-sndbuf+ #x1001)
-#+freebsd(defconstant +so-sndbuf+ #x1001)
 #+linux(defconstant +so-sndbuf+ 7)
+#+freebsd(defconstant +so-sndbuf+ #x1001)
+#+darwin(defconstant +so-sndbuf+ #x1001)
 
 ;; SO_RCVBUF
 #+(or win32 windows)(defconstant +so-rcvbuf+ #x1002)
-#+freebsd(defconstant +so-rcvbuf+ #x1002)
 #+linux(defconstant +so-rcvbuf+ 8)
+#+freebsd(defconstant +so-rcvbuf+ #x1002)
+#+darwin(defconstant +so-rcvbuf+ #x1002)
 
 ;; SO_SNDTIMEO
 #+(or win32 windows)(defconstant +so-sndtimeo+ #x1005)
-#+freebsd(defconstant +so-sndtimeo+ #x1005)
 #+linux(defconstant +so-sndtimeo+ 21)
+#+freebsd(defconstant +so-sndtimeo+ #x1005)
+#+darwin(defconstant +so-sndtimeo+ #x1005)
 
 ;; SO_RCVTIMEO
 #+(or win32 windows)(defconstant +so-rcvtimeo+ #x1006)
-#+freebsd(defconstant +so-rcvtimeo+ #x1006)
 #+linux(defconstant +so-rcvtimeo+ 20)
+#+freebsd(defconstant +so-rcvtimeo+ #x1006)
+#+darwin(defconstant +so-rcvtimeo+ #x1006)
 
 ;;(defconstant +so-error+ #x1007)
 ;;(defconstant +so-type+ #x1008)
@@ -132,6 +148,7 @@
 ;;(defconstant +so-no-offload+ #x4000)
 
 (defconstant +tcp-nodelay+ 1)
+
 
 
 
