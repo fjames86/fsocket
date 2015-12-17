@@ -1,14 +1,14 @@
+# fsocket
 
-
-# 1. Introduction
+## 1. Introduction
 This is yet-another Common Lisp FFI to provide a portable sockets API. It is intended to offer a
 socket API that wraps at a very low level the underlying BSD-sockets API provided by the host OS.
 Only supports the standard blocking I/O calls, does not support overlapped or aio_ type asynchronous calls.
 
-# 2. Usage
+## 2. Usage
 Basically you write exactly the same sort of code you would if writing in C.
 
-## 2.1 Socket functions
+### 2.1 Socket functions
 * OPEN-SOCKET :: open a socket.
 * CLOSE-SOCKET :: close a socket. 
 * SOCKET-SHUTDOWN :: graceful shutdown of a connected socket. 
@@ -29,7 +29,7 @@ Basically you write exactly the same sort of code you would if writing in C.
   (close-socket fd))
 ```
 
-## 2.2 Socket I/O
+### 2.2 Socket I/O
 There are two types of I/O: send/recv for connected sockets and sendto/recvfrom for unconnected sockets.
 
 * SOCKET-SEND :: send a buffer on a connected socket. 
@@ -48,7 +48,7 @@ There are two types of I/O: send/recv for connected sockets and sendto/recvfrom 
   (close-socket fd))
 ```
 
-## 2.3 Polling
+### 2.3 Polling
 Provides an API based on POSIX poll(). On systems where this is available (i.e. everywhere except Windows)
 it calls directly to poll(). On Windows it calls WSAEnumNetworkEvents() and iterates over each socket. The Windows
 events are mapping to poll events.
@@ -69,14 +69,14 @@ events are mapping to poll events.
   (close-poll pc))
 ```
 
-## 2.4 Hardware adapters
+### 2.4 Hardware adapters
 
 * LIST-ADAPTERS :: list host adapters, returns a list of ADAPTER structures.
 
 These contain a list of IP addresses associated with the adapter (i.e. logical interfaces), the
 physical address of the adapter, the interface index and current status.
 
-# 3. Socket options
+## 3. Socket options
 The currently supported socket options are as follows.
 
 Socket options `:SOCKET`
@@ -97,10 +97,10 @@ IP options `:IP`
 TCP options `:TCP`
 * TCP_NODELAY `:NODELAY` boolean
 
-# 4. Advanced topics
+## 4. Advanced topics
 Various advanced usage topics here.
 
-## 4.1 Polling 
+### 4.1 Polling 
 FSOCKET provides a portable polling mechanism based on POSIX poll(). On those systems is calls poll() directly,
 but on Windows we need a little bit more work. In order to provide a uniform interface on all platforms
 we must do the following:
@@ -115,7 +115,7 @@ On POSIX it simply calls poll().
 ## 4.2 IP multicast 
 IPv4 UDP multicast is implemented and working. See test/test2.lisp.
 
-## 4.3 Subclassing POLLFD
+### 4.3 Subclassing POLLFD
 When you call POLL-REGISTER you provide an instance of the class POLLFD, which encapsulates the socket
 and the events you wish to poll for. However, typically you will also want to associate other information with
 the socket, for instance and receive buffer or other contextual information. All you have to do is subclass
@@ -135,12 +135,12 @@ layout, adjusting constants etc.).
 * Tested: LispWorks Personal Edition 6.1.1 Windows 8.1
 * TODO: others
 
-# 6. TODO
+## 6. TODO
 - [x] Type all the stuff in for POSIX systems (Linux,FreeBSD)
 - [x] LIST-ADAPTERS
 - [ ] Write a whole suite of tests to check it all works
 - [ ] Write something non-trivial using it to make sure it has a sane API
 
-# 7. License
+## 7. License
 Licensed under the terms of the MIT license.
 Frank James 2015.

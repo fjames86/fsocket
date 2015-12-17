@@ -137,9 +137,12 @@
   "Open a socket. Call CLOSE-SOCKET to free resources.
 FAMILY ::= address family integer. Defaults to AF_INET i.e. IPv4.
 TYPE ::= socket type name, defaults to SOCK_DGRAM. Can be :datagram or :stream.
-PROTOCOL ::= socket protocol integer. Usually doesn't need to be specified.
+PROTOCOL ::= socket protocol integer. 
 
 Returns the socket or errors on failure."
+  (declare (type integer family)
+           (type symbol type)
+           (type (or null integer) protocol))
   (let ((s (%socket family
                     (ecase type
                       (:datagram +sock-dgram+)
