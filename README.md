@@ -122,17 +122,19 @@ the socket, for instance and receive buffer or other contextual information. All
 POLLFD and provide instances of your own class to POLL-REGISTER. For an example see TCP-ECHO in test/test1.lisp
 where I provide different subclasses for the listening TCP socket and its connections. 
 
-# 5. Implementations and operatings systems
+## 5. Implementations and operatings systems
 Because we are calling directly into the host API using CFFI, the implementation portability issues
-are handled by CFFI. I intend to support Windows, Linux, FreeBSD and maybe OSX. Currently the following have been
+are handled by CFFI. I intend to support Windows, Linux, FreeBSD and OSX. Currently the following have been
 tested. A small amount of work will be required to support other systems (e.g. checking structs have the same
 layout, adjusting constants etc.). 
 
 * Tested: SBCL x86-64 1.2.11 Windows 7
 * Tested: SBCL x86-64 1.2.9 FreeBSD-10.2
 * Tested: SBCL x86 1.2.7 Linux 
-* TODO: CCL (Windows, Linux, OSX, FreeBSD)
 * Tested: LispWorks Personal Edition 6.1.1 Windows 8.1
+* Tested: CCL x86-64 1.11 OSX
+* TODO: CCL (Windows, Linux, FreeBSD)
+* TODO: arch other than x86
 * TODO: others
 
 ## 6. TODO
