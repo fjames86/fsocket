@@ -607,6 +607,7 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
                       ;; we need to map :pollin event to read and accept to preserve the semantics of posix poll
                       (:pollin (logior #x1 #x8)) ;; FD_READ|FD_ACCEPT
                       (:pollout #x2) ;; FD_WRITE
+                      (:pollhup #x20) ;; FD_CLOSE. Windows requires us to explicitly request it, c.f. posix. 
                       ))))
     (let ((sts (%wsa-event-select sock event evt)))
       (if (= sts +socket-error+)
@@ -653,7 +654,7 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
                       #+nil(2 :oob) ;; FD_OOB
                       (3 :pollin) ;; FD_ACCEPT. We map this to pollin to preserve semantics with posix poll
                       #+nil(4 :connect) ;; FD_CONNECT 
-                      #+nil(5 :close)) ;; FD_CLOSE 
+                      (5 :pollhup)) ;; FD_CLOSE 
                     ret))
             (let ((ecode (mem-aref (foreign-slot-value events '(:struct wsa-network-events) 'ierrors)
                                    :uint32
@@ -719,6 +720,13 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
   (declare (type poll-context pc)
            (type (or null integer) timeout))
 
+  ;; reset all the events???
+  ;; (dolist (pfd (poll-context-fds pc))
+  ;;   (apply #'wsa-event-select
+  ;;          (pollfd-fd pfd)
+  ;;          (poll-context-event pc)
+  ;;          (poll-events (pollfd-events pfd))))
+  
   ;; start by waiting on the event
   (let ((sts
          (wsa-wait-for-single-event (poll-context-event pc)
