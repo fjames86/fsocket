@@ -503,7 +503,7 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
   (with-foreign-objects ((addr :uint32 32)
                          (len :uint32))
     (setf (mem-aref len :uint32) 32)
-    (let ((sts (%getsockname fd addr len)))
+    (let ((sts (%getsockname sock addr len)))
       (when (= sts +socket-error+)
         (get-last-error))
       (let ((family (mem-aref addr :uint16)))
