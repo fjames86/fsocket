@@ -15,7 +15,8 @@ Basically you write exactly the same sort of code you would if writing in C.
 * SOCKET-BIND :: bind to local address.
 * SOCKET-LISTEN :: listen for connections. 
 * SOCKET-CONNECT :: connect to remote server.
-* SOCKET-ACCEPT :: accept connection, returns connected socket. 
+* SOCKET-ACCEPT :: accept connection, returns connected socket.
+* SOCKET-NAME :: get local address of bound socket.
 * SOCKET-OPTION :: get a socket option.
 * (SETF SOCKET-OPTION) :: set a socket option.
 
