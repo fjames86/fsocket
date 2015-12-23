@@ -329,6 +329,34 @@ ADDR ::= remote address from which the data was received.
                   (values sts addr)))
                (t (error 'fsocket-error :msg (format nil "Unknown address family ~A" family)))))))))))
 
+
+;; int getsockname(int socket, struct sockaddr *restrict address, socklen_t *restrict address_len);
+(defcfun (%getsockname "getsockname") :int32
+  (fd :int32)
+  (addr :pointer)
+  (len :pointer))
+(defun socket-name (fd)
+    "Get the address to which the socket has been bound.
+FD ::= socket as returned from OPEN-SOCKET.
+Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
+  (with-foreign-objects ((addr :uint32 32)
+                         (len :uint32))
+    (setf (mem-aref len :uint32) 32)
+    (let ((sts (%getsockname fd addr len)))
+      (when (= sts +socket-error+)
+        (get-last-error))
+      (let ((family #+(or freebsd darwin)(mem-aref addr :uint8 1)
+                    #-(or freebsd darwin)(mem-aref addr :uint16)))
+        (cond
+          ((= family +af-inet+)
+           (mem-aref addr '(:struct sockaddr-in)))
+          ((= family +af-inet6+)
+           (mem-aref addr '(:struct sockaddr-in6)))
+          (t (error 'fsocket-error :msg (format nil "Unknown address family ~A" family))))))))
+
+
+
+
 ;; int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
 (defcfun (%getsockopt "getsockopt") :int32
   (fd :int32)

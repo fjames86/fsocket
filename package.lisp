@@ -12,7 +12,8 @@
            #:socket-listen
            #:socket-accept
            #:socket-shutdown
-
+           #:socket-name
+           
            ;; socket I/O
            #:socket-send
            #:socket-sendto
@@ -46,14 +47,14 @@
            ;; sockaddr-in struct 
            #:sockaddr-in
            #:make-sockaddr-in
-	   #:sockaddr-in-p
+           #:sockaddr-in-p
            #:sockaddr-in-addr
            #:sockaddr-in-port
 
            ;; sockaddr-in6 struct 
            #:sockaddr-in6
            #:make-sockaddr-in6
-	   #:sockaddr-in6-p
+           #:sockaddr-in6-p
            #:sockaddr-in6-addr
            #:sockaddr-in6-port
            #:sockaddr-in6-scope

@@ -61,7 +61,7 @@
 (defclass test-listening-pollfd (pollfd)
   ())
 
-(defun tcp-echo (port)
+(defun tcp-echo (port &optional timeout)
   (let ((pc (open-poll)))
     (unwind-protect
          (progn
@@ -77,7 +77,7 @@
            (do ((done nil)
                 (i 0 (1+ i)))
                ((or done (> i 10)))
-             (doevents (pollfd event) (poll pc :timeout 1000)
+             (doevents (pollfd event) (poll pc :timeout (or timeout 1000))
                (case event
                  (:pollin
                   ;; data to read
