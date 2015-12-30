@@ -58,6 +58,9 @@
            #:sockaddr-in6-addr
            #:sockaddr-in6-port
            #:sockaddr-in6-scope
+	   
+	   ;; address predicates 
+	   #:loopback-p
 
            ;; host network adapters
            #:list-adapters
@@ -73,6 +76,9 @@
            ;; conditions
            #:fsocket-error
            #:fsocket-short-buffer
-           
+
+           #:multicast-join 
+	   #:open-multicast-socket 
+
            ))
 

@@ -207,3 +207,45 @@ VALUE ::= value to set."))
 (defmethod (setf socket-option) (value sock (level (eql :tcp)) (option (eql :nodelay)))
   (set-socket-option-int32 sock +ipproto-tcp+ +tcp-nodelay+ (if value 1 0)))
 
+
+(defun multicast-join (sock mcaddr)
+  "Join the multicast group on all ETHERNET interfaces."
+  (let ((ads (list-adapters)))
+    (dolist (ad ads)
+      (when (eq (adapter-type ad) :ethernet)
+	;; tell the interface to join the group                  
+	(setf (socket-option sock :ip :mcast-join-group)
+	      ;; argument is (ifindex mcaddr)
+	      (list (adapter-index ad)
+		    mcaddr))))))
+  
+
+(defun open-multicast-socket (adapter &key (ttl 2) loopback bind-addr)
+  "Open a socket to be used to send multicast datagrams.
+ADAPTER ::= adapter to use as originating interface.
+TTL ::= mutlicast ttl.
+LOOPBACK ::= if true, will receive datagrams sent from loopback device, if false disables.
+BIND-ADDR ::= local address to bind to.
+
+Returns the socket."
+  (let ((sock (open-socket :type :datagram)))
+    (handler-bind ((error (lambda (condition)
+                            (declare (ignore condition))
+                            (close-socket sock)
+                            ;; decline to handler the error by letting control pass through
+                            nil)))
+      
+      ;; disable on loopback
+      (setf (socket-option sock :ip :ip-multicast-loop) loopback)
+
+      ;; select interface to send on 
+      (setf (socket-option sock :ip :ip-multicast-if)
+            (sockaddr-in-addr (car (adapter-unicast adapter))))
+
+      ;; set multicast ttl
+      (setf (socket-option sock :ip :ip-multicast-ttl) ttl)
+
+      ;; bind
+      (socket-bind sock (or bind-addr (make-sockaddr-in)))
+
+      sock)))

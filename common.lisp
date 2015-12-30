@@ -153,6 +153,19 @@
           (htons (aref (sockaddr-in6-addr saddr) i))))
   ptr)
 
+
+
+(defun loopback-p (addr)
+  "Returns true if the address references IPv4 127.0.0.1 or IPv6 ::1, false otherwise. 
+ADDR ::= a SOCKADDR-IN or SOCKADDR-IN6 address structure."
+  (etypecase addr 
+    (sockaddr-in (equalp (sockaddr-in-addr addr) #(127 0 0 1)))
+    (sockaddr-in6 (equalp (sockaddr-in6-addr addr) #(0 0 0 0 0 0 0 1)))))
+
+;; (defun subnet-p (addr)
+;;   "Returns true if the address is a valid subnet address."
+;;   nil)
+
 ;; --------------------------
 
 ;; Q: should the events be a bitmask or a list of symbols?

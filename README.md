@@ -116,6 +116,9 @@ On POSIX it simply calls poll().
 ## 4.2 IP multicast 
 IPv4 UDP multicast is implemented and working. See test/test2.lisp.
 
+* `MULTICAST-JOIN` ::= join the socket to the multicast group on all ethernet interfaces.
+* `OPEN-MULTICAST-SOCKET` ::= open a socket to send multicast datagrams.
+
 ### 4.3 Subclassing POLLFD
 When you call POLL-REGISTER you provide an instance of the class POLLFD, which encapsulates the socket
 and the events you wish to poll for. However, typically you will also want to associate other information with
