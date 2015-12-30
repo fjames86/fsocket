@@ -210,6 +210,7 @@ VALUE ::= value to set."))
 
 (defun multicast-join (sock mcaddr)
   "Join the multicast group on all ETHERNET interfaces."
+  (declare (type sockaddr-in mcaddr))
   (let ((ads (list-adapters)))
     (dolist (ad ads)
       (when (eq (adapter-type ad) :ethernet)
@@ -228,6 +229,7 @@ LOOPBACK ::= if true, will receive datagrams sent from loopback device, if false
 BIND-ADDR ::= local address to bind to.
 
 Returns the socket."
+  (declare (type adapter adapter))
   (let ((sock (open-socket :type :datagram)))
     (handler-bind ((error (lambda (condition)
                             (declare (ignore condition))
