@@ -209,7 +209,7 @@ VALUE ::= value to set."))
 
 
 (defun multicast-join (sock mcaddr)
-  "Join the multicast group on all ETHERNET interfaces."
+  "Join the IPv4 multicast group on all ETHERNET interfaces."
   (declare (type sockaddr-in mcaddr))
   (let ((ads (list-adapters)))
     (dolist (ad ads)
@@ -221,14 +221,13 @@ VALUE ::= value to set."))
 		    mcaddr))))))
   
 
-(defun open-multicast-socket (adapter &key (ttl 2) loopback bind-addr)
-  "Open a socket to be used to send multicast datagrams.
+(defun open-multicast-socket (adapter &key (ttl 2) loopback)
+  "Open a socket to be used to send IPv4 multicast datagrams.
 ADAPTER ::= adapter to use as originating interface.
-TTL ::= mutlicast ttl.
-LOOPBACK ::= if true, will receive datagrams sent from loopback device, if false disables.
-BIND-ADDR ::= local address to bind to.
+TTL ::= integer specifying multicast ttl.
+LOOPBACK ::= if true, will receive datagrams sent from loopback device, if false disables loopback.
 
-Returns the socket."
+Returns the unbound socket."
   (declare (type adapter adapter))
   (let ((sock (open-socket :type :datagram)))
     (handler-bind ((error (lambda (condition)
@@ -246,8 +245,5 @@ Returns the socket."
 
       ;; set multicast ttl
       (setf (socket-option sock :ip :ip-multicast-ttl) ttl)
-
-      ;; bind
-      (socket-bind sock (or bind-addr (make-sockaddr-in)))
 
       sock)))

@@ -556,9 +556,11 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 #+linux(defconstant +arphrd-ether+ 1)
 #+darwin(defconstant +arphrd-ether+ 1)
 
+#+linux(defconstant +arphrd-ppp+ 512)
+
 #+linux(defconstant +arphrd-loopback+ 772)
 
-#+(or win32 windows)(defconstant +siocgifmtu+ #x8921)
+;;#+(or win32 windows)(defconstant +siocgifmtu+ #x8921)
 #+linux(defconstant +siocgifmtu+ #x8921)
 #+freebsd(defconstant +siocgifmtu+ #x8921)
 #+darwin(defconstant +siocgifmtu+ #xC0206933)
@@ -605,6 +607,7 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
                     ((= family +af-inet6+)
                      (let ((addr (mem-ref ap '(:struct sockaddr-in6))))
                        (push addr (adapter-unicast ad))))
+		    ;; TODO: find out how to identify PPP interfaces on FreeBSD and Darwin
                     #+(or freebsd darwin)
                     ((= family +af-link+)
                      ;; freebsd provides the physical address directly in the ifaddrs struct
@@ -651,6 +654,8 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
                                    (adapter-type ad) :ethernet)))
                           ((= family +arphrd-loopback+) ;; ARPHRD_LOOPBACK
                            (setf (adapter-type ad) :loopback))
+			  ((= family +arphrd-ppp+) ;; ARPHRD_PPP
+			   (setf (adapter-type ad) :ppp))
                           (t
                            ;; unknown type
                            (setf (adapter-type ad) family))))))))

@@ -989,6 +989,7 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
                     (131 :multi-link)
                     (24 :loopback)
                     (6 :ethernet)
+		    (23 :ppp)
                     (otherwise type)))
                 (adapter-address ad)
                 (make-array count))
