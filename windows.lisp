@@ -990,7 +990,7 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
                     (24 :loopback)
                     (6 :ethernet)
 		    (23 :ppp)
-		    (71 :ieee802111)
+		    (71 :ieee80211)
                     (otherwise type)))
                 (adapter-address ad)
                 (make-array count))
