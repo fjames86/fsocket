@@ -208,17 +208,21 @@ VALUE ::= value to set."))
   (set-socket-option-int32 sock +ipproto-tcp+ +tcp-nodelay+ (if value 1 0)))
 
 
-(defun multicast-join (sock mcaddr)
+(defun multicast-join (sock mcaddr &optional adapters)
   "Join the IPv4 multicast group on all ETHERNET interfaces."
   (declare (type sockaddr-in mcaddr))
-  (let ((ads (list-adapters)))
+  (let ((ads (or adapters
+		 (mapcan (lambda (ad)
+			   (when (and (eq (adapter-type ad) :ethernet)
+				      (eq (adapter-status ad) :up))
+			     (list ad)))
+			 (list-adapters)))))
     (dolist (ad ads)
-      (when (eq (adapter-type ad) :ethernet)
-	;; tell the interface to join the group                  
-	(setf (socket-option sock :ip :mcast-join-group)
-	      ;; argument is (ifindex mcaddr)
-	      (list (adapter-index ad)
-		    mcaddr))))))
+      ;; tell the interface to join the group                  
+      (setf (socket-option sock :ip :mcast-join-group)
+	    ;; argument is (ifindex mcaddr)
+	    (list (adapter-index ad)
+		  mcaddr)))))
   
 
 (defun open-multicast-socket (adapter &key (ttl 2) loopback)
@@ -233,7 +237,7 @@ Returns the unbound socket."
     (handler-bind ((error (lambda (condition)
                             (declare (ignore condition))
                             (close-socket sock)
-                            ;; decline to handler the error by letting control pass through
+                            ;; decline to handle the error by letting control pass through
                             nil)))
       
       ;; disable on loopback
