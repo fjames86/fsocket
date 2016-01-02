@@ -61,7 +61,8 @@
 	   
 	   ;; address predicates 
 	   #:loopback-p
-
+	   #:sockaddr=
+	   
            ;; host network adapters
            #:list-adapters
            #:adapter

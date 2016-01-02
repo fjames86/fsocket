@@ -166,6 +166,17 @@ ADDR ::= a SOCKADDR-IN or SOCKADDR-IN6 address structure."
 ;;   "Returns true if the address is a valid subnet address."
 ;;   nil)
 
+(defun sockaddr= (sa1 sa2)
+  (etypecase sa1
+    (sockaddr-in
+     (when (typep sa2 'sockaddr-in)
+       (and (equalp (sockaddr-in-addr sa1) (sockaddr-in-addr sa2))
+	    (= (sockaddr-in-port sa1) (sockaddr-in-port sa2)))))
+    (sockaddr-in6
+     (when (typep sa2 'sockaddr-in6)
+       (and (equalp (sockaddr-in6-addr sa1) (sockaddr-in6-addr sa2))
+	    (= (sockaddr-in6-port sa1) (sockaddr-in6-port sa2)))))))0
+
 ;; --------------------------
 
 ;; Q: should the events be a bitmask or a list of symbols?
