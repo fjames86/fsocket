@@ -195,6 +195,9 @@ HOW ::= :SEND to stop sending, :RECEIVE to stop receiving, :BOTH to stop both."
   (buffer :pointer)
   (len size-t)
   (flags :int32))
+
+(declaim (ftype (function (t (vector (unsigned-byte 8)) &key (:start integer) (:end (or null integer)))
+			  integer)))
 (defun socket-send (fd buffer &key (start 0) end)
   "Send a buffer on the connected socket.
 SOCK ::= connected socket.
@@ -221,6 +224,9 @@ Returns the number of bytes actually sent, which can be less than the requested 
   (flags :int32)
   (addr :pointer)
   (alen :int32))
+
+(declaim (ftype (function (t (vector (unsigned-byte 8)) (or sockaddr-in sockaddr-in6) &key (:start integer) (:end (or null integer)))
+			  integer)))
 (defun socket-sendto (fd buffer addr &key (start 0) end)
   "Send data to the address on the socket.
 SOCK ::= socket.
@@ -261,6 +267,9 @@ Returns the number of octets actually sent, which can be less than the number re
   (buffer :pointer)
   (len size-t)
   (flags :int32))
+
+(declaim (ftype (function (t (vector (unsigned-byte 8)) &key (:start integer) (:end (or null integer)))
+			  integer)))
 (defun socket-recv (fd buffer &key (start 0) end)
   "Receive data from the socket.
 SOCK ::= socket.
@@ -290,6 +299,9 @@ Retuns the number of bytes actually received, which can be less than the number 
   (flags :int32)
   (addr :pointer)
   (alen :pointer))
+
+(declaim (ftype (function (t (vector (unsigned-byte 8)) &key (:start integer) (:end (or null integer)))
+			  (values integer (or sockaddr-in sockaddr-in6)))))
 (defun socket-recvfrom (fd buffer &key (start 0) end)
   "Receive data from the socket.
 SOCK ::= socket.
@@ -409,12 +421,15 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
   (declare (ignore pc))
   nil)
 
+(declaim (ftype (function (poll-context pollfd) pollfd) poll-register))
 (defun poll-register (pc pollfd)
   "Register a pollfd descriptor with a poll context."
   (declare (type poll-context pc)
 	   (type pollfd pollfd))
-  (push pollfd (poll-context-fds pc)))
+  (push pollfd (poll-context-fds pc))
+  pollfd)
 
+(declaim (ftype (function (poll-context pollfd) null)))
 (defun poll-unregister (pc pollfd)
   "Unregister a pollfd descriptor from a poll context."
   (declare (type poll-context pc)
@@ -430,6 +445,7 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
   (count :int32)
   (timeout :int32))
 
+(declaim (ftype (function (poll-context &key (:timeout (or null integer))) list) poll))
 (defun poll (pc &key timeout)
   "Poll the sockets registered with the poll context for network events.
 

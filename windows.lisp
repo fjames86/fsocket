@@ -113,7 +113,6 @@
 (defcfun (close-handle "CloseHandle" :convention :stdcall) :boolean
   (handle :pointer))
 
-
 ;; SOCKET WSAAPI socket(
 ;;   _In_ int af,
 ;;   _In_ int type,
@@ -318,6 +317,9 @@ HOW ::= :SEND to stop sending, :RECEIVE to stop receiving, :BOTH to stop both."
   (buffer :pointer)
   (len :int32)
   (flags :int32))
+
+(declaim (ftype (function (t (vector (unsigned-byte 8)) &key (:start integer) (:end (or null integer)))
+			  integer)))
 (defun socket-send (sock buffer &key (start 0) end)
   "Send a buffer on the connected socket.
 SOCK ::= connected socket.
@@ -326,6 +328,7 @@ START ::= start index of buffer.
 END ::= end index of buffer.
 
 Returns the number of bytes actually sent, which can be less than the requested length."
+  (declare (type (vector (unsigned-byte 8)) buffer))
   (let ((count (- (or end (length buffer)) start)))
     (with-foreign-object (p :uint8 count)
       (dotimes (i count)
@@ -351,6 +354,9 @@ Returns the number of bytes actually sent, which can be less than the requested 
   (flags :int32)
   (addr :pointer)
   (alen :int32))
+
+(declaim (ftype (function (t (vector (unsigned-byte 8)) (or sockaddr-in sockaddr-in6) &key (:start integer) (:end (or null integer)))
+			  integer)))
 (defun socket-sendto (sock buffer addr &key (start 0) end)
   "Send data to the address on the socket.
 SOCK ::= socket.
@@ -360,6 +366,8 @@ START ::= buffer start index
 END ::= buffer end index.
 
 Returns the number of octets actually sent, which can be less than the number requested."
+  (declare (type (vector (unsigned-byte 8)) buffer)
+	   (type (or sockaddr-in sockaddr-in6) addr))
   (let ((count (- (or end (length buffer)) start))
         (alen 0))
     (with-foreign-objects ((p :uint8 count)
@@ -395,6 +403,9 @@ Returns the number of octets actually sent, which can be less than the number re
   (buffer :pointer)
   (len :int32)
   (flags :int32))
+
+(declaim (ftype (function (t (vector (unsigned-byte 8)) &key (:start integer) (:end (or null integer)))
+			  integer)))
 (defun socket-recv (sock buffer &key (start 0) end)
   "Receive data from the socket.
 SOCK ::= socket.
@@ -403,6 +414,7 @@ START ::= buffer start idnex.
 END ::= buffer end index.
 
 Retuns the number of bytes actually received, which can be less than the number requested."
+  (declare (type (vector (unsigned-byte 8)) buffer))
   (let ((count (- (or end (length buffer)) start)))
     (with-foreign-object (p :uint8 count)
       (let ((sts (%recv sock p count 0)))
@@ -436,6 +448,8 @@ Retuns the number of bytes actually received, which can be less than the number 
   (addr :pointer)
   (alen :pointer))
 
+(declaim (ftype (function (t (vector (unsigned-byte 8)) &key (:start integer) (:end (or null integer)))
+			  (values integer (or sockaddr-in sockaddr-in6)))))
 (defun socket-recvfrom (sock buffer &key (start 0) end)
   "Receive data from the socket.
 SOCK ::= socket.
@@ -447,6 +461,7 @@ Returns (values count addr) where
 COUNT ::= number of octets actually received, which can be less than the number requested.
 ADDR ::= remote address from which the data was received.
 "
+  (declare (type (vector (unsigned-byte 8)) buffer))
   (let ((count (- (or end (length buffer)) start)))
     (with-foreign-objects ((p :uint8 count)
                            (a :uint8 32)
@@ -678,6 +693,7 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
   (declare (type poll-context pc))
   (wsa-close-event (poll-context-event pc)))
 
+(declaim (ftype (function (poll-context pollfd) pollfd) poll-register))
 (defun poll-register (pc pollfd)
   "Register a pollfd descriptor with the poll context."
   (declare (type poll-context pc)
@@ -694,6 +710,7 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
   
   pollfd)
 
+(declaim (ftype (function (poll-context pollfd) null)))
 (defun poll-unregister (pc pollfd)
   "Unregister a pollfd descriptor from the poll context."
   (declare (type poll-context pc)
@@ -709,6 +726,7 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
 ;;(defconstant +wsa-wait-event-0+ 0)
 (defconstant +wsa-wait-timeout+ 258)
 
+(declaim (ftype (function (poll-context &key (:timeout (or null integer))) list) poll))
 (defun poll (pc &key timeout)
   "Poll the sockets registered with the poll context for network events.
 
