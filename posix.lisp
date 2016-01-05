@@ -731,12 +731,22 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
   (nscount :int32)
   (nsaddrs (:struct sockaddr-in) :count 3)) ;; MAXNS == 3
 
-(defcfun (%res-ninit "res_ninit") :int32
+
+;; (define-foreign-library lresolv
+;;   (t (:default "libresolv")))
+
+;; (use-foreign-library lresolv)
+
+(defcfun (%res-ninit "__res_ninit") :int32
   (state :pointer))
 
 (defun get-name-servers ()
   "Returns a list of SOCKADDR-IN addresses for configured DNS name servers."
-  (with-foriegn-object (p :uint8 :count 600) ;; allocate more than we need just in case 
+  (with-foreign-object (p :uint8 600) ;; allocate more than we need just in case
+    ;; clear it out
+    (dotimes (i 600)
+      (setf (mem-aref p :uint8 i) 0))
+    
     (let ((sts (%res-ninit p)))
       (unless (zerop sts) (get-last-error))
       (let ((ap (foreign-slot-pointer p '(:struct res-state) 'nsaddrs)))
