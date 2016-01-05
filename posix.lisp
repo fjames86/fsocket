@@ -706,3 +706,41 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 
   
 
+;; ------------------------------------------------------
+
+;; DNS
+
+;; Fortunately this seems to have th same layout on Linux and FreeBSD
+;; struct __res_state {
+;;         int     retrans;                /*%< retransmission time interval */
+;;         int     retry;                  /*%< number of times to retransmit */
+;;         u_long  options;                /*%< option flags - see below. */
+;;         int     nscount;                /*%< number of name servers */
+;;         struct sockaddr_in
+;;                 nsaddr_list[MAXNS];     /*%< address of name server */
+;; .... and more ... up to 512 bytes
+
+;; NOTE:
+;; on FreeBSD sizeof(struct __res_state) == 552
+;; on Linux sizeof(struct __res_state) == 512
+
+(defcstruct res-state
+  (retrans :int32)
+  (retry :int32)
+  (options :uint64)
+  (nscount :int32)
+  (nsaddrs (:struct sockaddr-in) :count 3)) ;; MAXNS == 3
+
+(defcfun (%res-ninit "res_ninit") :int32
+  (state :pointer))
+
+(defun get-name-servers ()
+  "Returns a list of SOCKADDR-IN addresses for configured DNS name servers."
+  (with-foriegn-object (p :uint8 :count 600) ;; allocate more than we need just in case 
+    (let ((sts (%res-ninit p)))
+      (unless (zerop sts) (get-last-error))
+      (let ((ap (foreign-slot-pointer p '(:struct res-state) 'nsaddrs)))
+        (loop :for i :below (foreign-slot-value p '(:struct res-state) 'nscount)
+           :collect (mem-aref ap '(:struct sockaddr-in) i))))))
+
+

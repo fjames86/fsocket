@@ -101,6 +101,16 @@
           (aref (sockaddr-in-addr saddr) i)))
   ptr)
 
+(defun dotted-quad-to-inaddr (string)
+  (do ((addr (make-array 4))
+       (i 0 (1+ i))
+       (pos nil))
+      ((= i 4) addr)
+    (let ((np (position #\. string :start (or pos 0))))
+      (when (and (< i 3) (not np)) (error "Invalid dotted quad string"))
+      (setf (aref addr i) (parse-integer string :start (or pos 0) :end np))
+      (when np
+        (setf pos (1+ np))))))
 
 ;; -------------------------------
 

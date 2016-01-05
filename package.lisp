@@ -58,11 +58,11 @@
            #:sockaddr-in6-addr
            #:sockaddr-in6-port
            #:sockaddr-in6-scope
-	   
-	   ;; address predicates 
-	   #:loopback-p
-	   #:sockaddr=
-	   
+           
+           ;; address predicates 
+           #:loopback-p
+           #:sockaddr=
+           
            ;; host network adapters
            #:list-adapters
            #:adapter
@@ -79,7 +79,10 @@
            #:fsocket-short-buffer
 
            #:multicast-join 
-	   #:open-multicast-socket 
+           #:open-multicast-socket 
 
+           ;; DNS functions
+           #:get-name-servers
+           
            ))
 

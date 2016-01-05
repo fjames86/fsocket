@@ -1112,6 +1112,102 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 
 ;; --------------- DNS -------------------
 
+;; struct _IP_ADDR_STRING {
+;;     struct _IP_ADDR_STRING* Next;
+;;     IP_ADDRESS_STRING IpAddress;
+;;     IP_MASK_STRING IpMask;
+;;     DWORD Context;
+;; } 
+(defcstruct ip-addr-string
+  (next :pointer)
+  (addr :uint8 :count 16)
+  (mask :uint8 :count 16)
+  (context :uint32))
+
+;; (defconstant +max-host-name-len+ 128)
+;; (defconstant +max-domain-name-len+ 128)
+;; (defconstant +max-scope-id-len+ 256)
+
+;; struct {
+;;     char HostName[MAX_HOSTNAME_LEN + 4] ;
+;;     char DomainName[MAX_DOMAIN_NAME_LEN + 4];
+;;     PIP_ADDR_STRING CurrentDnsServer;
+;;     IP_ADDR_STRING DnsServerList;
+;;     UINT NodeType;
+;;     char ScopeId[MAX_SCOPE_ID_LEN + 4];
+;;     UINT EnableRouting;
+;;     UINT EnableProxy;
+;;     UINT EnableDns;
+;; }
+(defcstruct fixed-info
+  (hostname :uint8 :count 132) ;; (+ +max-hostname-len+ 4))
+  (domain-name :uint8 :count 132) ;; (+ +max-domain-name+ 4))
+  (current-dns-server :pointer)
+  (dns-server-list (:struct ip-addr-string))
+  (node-type :uint32)
+  (scope-id :uint8 :count 260) ;; (+ +max-scope-id-len+ 4))
+  (enable-routing :uint32)
+  (enable-proxy :uint32)
+  (enable-dns :uint32))
+
+;;DWORD WINAPI GetNetworkParams( PFIXED_INFO pFixedInfo, PULONG pOutBufLen );
+(defcfun (%get-network-params "GetNetworkParams" :convention :stdcall) :uint32
+  (pinfo :pointer)
+  (len :pointer))
+
+(defstruct network-params
+  hostname
+  domain-name
+  dns-servers
+  node-type
+  scope-id
+  enable-routing
+  enable-proxy
+  enable-dns)
+
+(defun get-network-params ()
+  (with-foreign-objects ((ifo :uint8 2048)
+                         (plen :uint32))
+    (setf (mem-aref plen :uint32) 2048)
+    (let ((sts (%get-network-params ifo plen))
+          (np (make-network-params)))
+      (unless (zerop sts) (get-last-error))
+
+      ;; set everything except dns addresses
+      (setf (network-params-hostname np)
+            (foreign-string-to-lisp (foreign-slot-pointer ifo '(:struct fixed-info) 'hostname))
+            (network-params-domain-name np)
+            (foreign-string-to-lisp (foreign-slot-pointer ifo '(:struct fixed-info) 'domain-name))
+            (network-params-node-type np)
+            (foreign-slot-value ifo '(:struct fixed-info) 'node-type)
+            (network-params-scope-id np)
+            (foreign-string-to-lisp (foreign-slot-pointer ifo '(:struct fixed-info) 'scope-id))
+            (network-params-enable-routing np)
+            (foreign-slot-value ifo '(:struct fixed-info) 'enable-routing)
+            (network-params-enable-proxy np)
+            (foreign-slot-value ifo '(:struct fixed-info) 'enable-proxy)
+            (network-params-enable-dns np)
+            (foreign-slot-value ifo '(:struct fixed-info) 'enable-dns))
+                  
+      (do ((p (foreign-slot-pointer ifo '(:struct fixed-info) 'dns-server-list)
+              (foreign-slot-value p '(:struct ip-addr-string) 'next)))
+          ((null-pointer-p p))
+        (let ((ap (foreign-slot-pointer p '(:struct ip-addr-string) 'addr)))
+          (push (foreign-string-to-lisp ap)
+                (network-params-dns-servers np))))
+      
+      np)))
+
+(defun get-name-servers ()
+  "Returns a list of SOCKADDR-IN addresses for configured DNS name servers."
+  (let ((np (get-network-params)))
+    (mapcar (lambda (ns)
+              ;; convert the dotted quad to sockaddr-in structs
+              (make-sockaddr-in :addr (dotted-quad-to-inaddr ns)
+                                :port 53))
+            (network-params-dns-servers np))))
+
+
 ;; struct hostent {
 ;;   char FAR      *h_name;
 ;;   char FAR  FAR **h_aliases;
