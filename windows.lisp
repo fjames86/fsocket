@@ -475,18 +475,19 @@ ADDR ::= remote address from which the data was received.
                             alen)))
         (cond
           ((= sts +socket-error+)
-           (let ((ecode (%get-last-error)))
-             (if (= ecode +wsa-error-msgsize+) 
-                 ;; msg larger than buffer, bytes dropped!
-                 (progn (signal (make-condition 'fsocket-short-buffer))
-                        (let ((family (mem-aref a :uint16)))
-                          (cond
-                            ((= family +af-inet+)
-                             (values count (mem-aref a '(:struct sockaddr-in))))
-                            ((= family +af-inet6+)
-                             (values count (mem-aref a '(:struct sockaddr-in6))))
-                            (t (error 'fsocket-error :msg (format nil "Unknown address family ~A" family))))))
-                 (get-last-error ecode))))
+           ;; (let ((ecode (%get-last-error)))
+           ;;   (if (= ecode +wsa-error-msgsize+) 
+           ;;       ;; msg larger than buffer, bytes dropped!
+           ;;       (progn (signal (make-condition 'fsocket-short-buffer))
+           ;;              (let ((family (mem-aref a :uint16)))
+           ;;                (cond
+           ;;                  ((= family +af-inet+)
+           ;;                   (values count (mem-aref a '(:struct sockaddr-in))))
+           ;;                  ((= family +af-inet6+)
+           ;;                   (values count (mem-aref a '(:struct sockaddr-in6))))
+           ;;                  (t (error 'fsocket-error :msg (format nil "Unknown address family ~A" family))))))
+           ;;       (get-last-error ecode))))
+	   (get-last-error))
           (t
            (dotimes (i sts)
              (setf (aref buffer (+ start i)) (mem-ref p :uint8 i)))
