@@ -112,6 +112,21 @@
       (when np
         (setf pos (1+ np))))))
 
+(defun sockaddr-in (&optional inaddr port)
+  "Allocate a SOCKADDR-IN address structure. 
+INADDR ::= a vector of 4 octets specifying the internet address. May be 
+entered in the \"dotted quad\" string format.
+If not supplied the wildcard address is used.
+PORT ::= integer specifying the port number. If not supplied port 0 will be used.
+
+Returns a new SOCKADDR-IN structure."
+  (make-sockaddr-in :addr (cond
+			    ((null inaddr) #(0 0 0 0))
+			    ((vectorp inaddr) inaddr)
+			    ((stringp inaddr) (dotted-quad-to-inaddr inaddr))
+			    (t (error "Invalid inaddr value ~S" inaddr)))
+		    :port (or port 0)))
+
 ;; -------------------------------
 
 (defstruct sockaddr-in6
