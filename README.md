@@ -113,6 +113,14 @@ a POLLFD instance (which encapsulates the socket) with the poll context.
 On POSIX it simply calls poll().
 4. Iterate over each of the input POLLFD descriptors and process the pending events.
 
+#### 4.1.1 Side-effects of `POLL-REGISTER`
+* On Windows, `POLL-REGISTER` calls WSAEventSelect, which will convert
+the socket to non-blocking mode. 
+* On POSIX systes `POLL-REGISTER` does nothing other than pushing the pollfd
+instance onto a list of pollfds stored with the poll context.
+* Therefore users should be aware that once they have registered with the
+poll context, the socket MAY now be in non-blocking mode.
+
 ## 4.2 IP multicast 
 IPv4 UDP multicast is implemented and working. See test/test2.lisp.
 
