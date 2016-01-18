@@ -1202,10 +1202,11 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 (defun get-name-servers ()
   "Returns a list of SOCKADDR-IN addresses for configured DNS name servers."
   (let ((np (get-network-params)))
-    (mapcar (lambda (ns)
+    (mapcan (lambda (ns)
               ;; convert the dotted quad to sockaddr-in structs
-              (make-sockaddr-in :addr (dotted-quad-to-inaddr ns)
-                                :port 53))
+	      (unless (string-equal ns "")
+		(list (make-sockaddr-in :addr (dotted-quad-to-inaddr ns)
+				  :port 53))))
             (network-params-dns-servers np))))
 
 
