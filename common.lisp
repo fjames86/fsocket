@@ -126,8 +126,8 @@ PORT ::= integer specifying the port number. If not supplied port 0 will be used
 Returns a new SOCKADDR-IN structure."
   (make-sockaddr-in :addr (cond
 			    ((null inaddr) #(0 0 0 0))
-			    ((vectorp inaddr) inaddr)
 			    ((stringp inaddr) (dotted-quad-to-inaddr inaddr))
+			    ((vectorp inaddr) inaddr)
 			    (t (error "Invalid inaddr value ~S" inaddr)))
 		    :port (or port 0)))
 
