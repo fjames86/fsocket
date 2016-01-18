@@ -132,17 +132,18 @@
 
 (defconstant +socket-error+ -1)
 
-(defun open-socket (&key (family +af-inet+) (type :datagram) protocol)
+(defun open-socket (&key (family :inet) (type :datagram) protocol)
   "Open a socket. Call CLOSE-SOCKET to free resources.
-FAMILY ::= address family integer. Defaults to AF_INET i.e. IPv4.
+FAMILY ::= address family integer. Either :INET or :INET6.
 TYPE ::= socket type name, defaults to SOCK_DGRAM. Can be :datagram or :stream.
 PROTOCOL ::= socket protocol integer. 
 
 Returns the socket or errors on failure."
-  (declare (type integer family)
-           (type symbol type)
+  (declare (type symbol family type)
            (type (or null integer) protocol))
-  (let ((s (%socket family
+  (let ((s (%socket (ecase family
+                      (:inet +af-inet+)
+                      (:inet6 +af-inet6+))
                     (ecase type
                       (:datagram +sock-dgram+)
                       (:stream +sock-stream+))
