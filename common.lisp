@@ -179,6 +179,10 @@ Returns a new SOCKADDR-IN structure."
   ptr)
 
 
+(defun sockaddr-in6 (&optional addr port)
+  (make-sockaddr-in6 :addr (or addr #(0 0 0 0 0 0 0 0))
+                     :port (or port 0)))
+
 
 (defun loopback-p (addr)
   "Returns true if the address references IPv4 127.0.0.1 or IPv6 ::1, false otherwise. 
