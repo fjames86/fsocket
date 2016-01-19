@@ -78,8 +78,11 @@ VALUE ::= value to set."))
 (defmethod socket-option (sock (level (eql :socket)) (option (eql :rcvbuf)))
   (get-socket-option-int32 sock +sol-socket+ +so-rcvbuf+))
 
+(defmethod socket-option (sock (level (eql :socket)) (option (eql :error)))
+  (get-socket-option-int32 sock +sol-socket+ +so-error+))
+
 ;; ------------------------------------------------
-;; setting oscket options
+;; setting socket options
 
 (defun set-socket-option-boolean (sock level option value)
   (with-foreign-object (vbuf :uint8 4)

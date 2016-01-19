@@ -47,6 +47,7 @@
 
 
 (defconstant +wsa-error-msgsize+ #x2738)
+(defconstant +wsa-error-wouldblock+ 10035)
 
 ;; ------------------ startup -------------------------
 
@@ -209,6 +210,7 @@ ADDR ::= local address. SOCKADDR-IN or SOCKADDR-IN6 address."
   (sock :pointer)
   (addr :pointer)
   (len :int32))
+
 (defun socket-connect (sock addr)
   "Connect the socket to the remote address.
 SOCK :: socket.
@@ -218,16 +220,24 @@ ADDR ::= remote address."
      (with-foreign-object (a '(:struct sockaddr-in))
        (setf (mem-aref a '(:struct sockaddr-in)) addr)
        (let ((sts (%connect sock a (foreign-type-size '(:struct sockaddr-in)))))
-         (if (= sts +socket-error+)
-             (get-last-error)
-             nil))))
+         (cond
+           ((= sts +socket-error+)
+            (let ((ecode (%get-last-error)))
+              (if (= ecode +wsa-error-wouldblock+)
+                  nil
+                  (get-last-error ecode))))
+           (t t)))))
     (sockaddr-in6
      (with-foreign-object (a '(:struct sockaddr-in6))
        (setf (mem-aref a '(:struct sockaddr-in6)) addr)
        (let ((sts (%connect sock a (foreign-type-size '(:struct sockaddr-in6)))))
-         (if (= sts +socket-error+)
-             (get-last-error)
-             nil))))))
+         (cond
+           ((= sts +socket-error+)
+            (let ((ecode (%get-last-error)))
+              (if (= ecode +wsa-error-wouldblock+)
+                  nil
+                  (get-last-error ecode))))
+           (t t)))))))
 
 ;; int listen(
 ;;   _In_ SOCKET s,
@@ -260,7 +270,10 @@ SOCK ::= listening socket.
 
 Returns (values conn addr) where
 CONN ::= new connected socket.
-ADDR ::= address of the connected socket."
+ADDR ::= address of the connected socket.
+
+Returns the connection socket descriptor if completed or nil if 
+the socket is in non-blocking mode and the operation would block."
   (with-foreign-objects ((buffer :uint8 32)
                          (alen :uint32))
     (setf (mem-aref alen :uint32) 32)
@@ -269,7 +282,10 @@ ADDR ::= address of the connected socket."
                         alen)))
       (cond
         ((invalid-socket-p sts)
-         (get-last-error))
+         (let ((ecode (%get-last-error)))
+           (if (= ecode +wsa-error-wouldblock+)
+               nil
+               (get-last-error ecode))))
         (t
          (let ((family (mem-aref buffer :uint16)))
            (cond 
@@ -669,8 +685,8 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
                       (0 :pollin) ;; FD_READ
                       (1 :pollout) ;; FD_WRITE
                       #+nil(2 :oob) ;; FD_OOB
-                      (3 :pollin) ;; FD_ACCEPT. We map this to pollin to preserve semantics with posix poll
-                      #+nil(4 :connect) ;; FD_CONNECT 
+                      (3 :pollin) ;; FD_ACCEPT. We map this to pollin to preserve semantics with posix 
+                      (4 :pollout) ;; FD_CONNECT. We map this to pollout to preserve semantics with posix
                       (5 :pollhup)) ;; FD_CLOSE 
                     ret))
             (let ((ecode (mem-aref (foreign-slot-value events '(:struct wsa-network-events) 'ierrors)

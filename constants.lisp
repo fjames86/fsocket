@@ -142,7 +142,11 @@
 #+freebsd(defconstant +so-rcvtimeo+ #x1006)
 #+darwin(defconstant +so-rcvtimeo+ #x1006)
 
-;;(defconstant +so-error+ #x1007)
+;; SO_ERROR 
+#+(or win32 windows)(defconstant +so-error+ #x1007)
+#+linux(defconstant +so-error+ 4)
+#+(or freebsd darwin)(defconstant +so-error+ #x1007)
+
 ;;(defconstant +so-type+ #x1008)
 ;;(defconstant +so-resuseport+ #x0200)
 ;;(defconstant +so-no-offload+ #x4000)

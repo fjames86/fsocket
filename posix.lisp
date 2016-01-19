@@ -20,8 +20,8 @@
                      (posix-error-code condition)
                      (strerror (posix-error-code condition))))))
 
-(defun get-last-error ()
-  (let ((code *errno*))
+(defun get-last-error (&optional ecode)
+  (let ((code (or ecode *errno*)))
     (error 'posix-error :code code)))
 
 ;; --------------------------------------
@@ -98,25 +98,39 @@ ADDR ::= local address. Can be either SOCKADDR-IN or SOCKADDR-IN6."
   (fd :int32)
   (addr :pointer)
   (len :int32))
+
+#+linux(defconstant +ewouldblock+ 11)
+#+(or freebsd darwin)(defconstant +ewouldblock+ 35)
+
 (defun socket-connect (fd addr)
     "Connect the socket to the remote address.
 SOCK :: socket.
-ADDR ::= remote address."
+ADDR ::= remote address.
+
+Returns true if the operation completed successfully.
+If the socket is in non-blocking mode and the operation would block returns NIL. 
+A :POLLOUT event indicates a subsequent socket-connect will complete immediately."
     (etypecase addr
       (sockaddr-in
        (with-foreign-object (a '(:struct sockaddr-in))
          (setf (mem-aref a '(:struct sockaddr-in)) addr)
          (let ((sts (%connect fd a (foreign-type-size '(:struct sockaddr-in)))))
            (if (= sts +socket-error+)
-               (get-last-error)
-               nil))))
+               (let ((ecode *errno*))
+                 (if (= ecode +ewouldblock+)
+                     nil
+                     (get-last-error ecode)))
+               t))))
       (sockaddr-in6
        (with-foreign-object (a '(:struct sockaddr-in6))
          (setf (mem-aref a '(:struct sockaddr-in6)) addr)
          (let ((sts (%connect fd a (foreign-type-size '(:struct sockaddr-in6)))))
            (if (= sts +socket-error+)
-               (get-last-error)
-               nil))))))
+               (let ((ecode *errno*))
+                 (if (= ecode +ewouldblock+)
+                     nil
+                     (get-last-error ecode))
+                 t)))))))
 
 ;; int listen(int sockfd, int backlog);
 (defcfun (%listen "listen") :int32
@@ -142,7 +156,10 @@ SOCK ::= listening socket.
 
 Returns (values conn addr) where
 CONN ::= new connected socket.
-ADDR ::= address of the connected socket."
+ADDR ::= address of the connected socket.
+
+If the socket is in non-blocking mode and the operation would block returns nil.
+A :POLLIN event indicates a subsequent socket-accept will complete immediately."
   (with-foreign-objects ((buffer :uint8 32)
                          (alen :uint32))
     (setf (mem-aref alen :uint32) 32)
@@ -151,7 +168,10 @@ ADDR ::= address of the connected socket."
                         alen)))
       (cond
         ((invalid-socket-p sts)
-         (get-last-error))
+         (let ((ecode *errno*))
+           (if (= ecode +ewouldblock+)
+               nil
+               (get-last-error ecode))))
         (t
          (let ((family #+(or freebsd darwin)(mem-aref buffer :uint8 1)
                        #-(or freebsd darwin)(mem-aref buffer :uint16)))
@@ -389,6 +409,30 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
   (val :pointer)
   (vlen :int32))
 
+
+
+;; int fcntl(int fd, int cmd, ... /* arg */ );
+(defcfun (%fcntl "fcntl") :int32
+  (fd :int32)
+  (cmd :int32)
+  (arg :pointer))
+
+#+linux(defconstant +o-nonblock+ 2048)
+#+(or freebsd darwin)(defconstant +o-nonblock+ #x0004)
+
+(defconstant +f-getfl+ 3)
+(defconstant +f-setfl+ 4)
+
+(defun socket-flags (fd)
+  (%fcntl fd +f-getfl+ (null-pointer)))
+
+(defun (setf socket-flags) (flags fd)
+  (%fcntl fd +f-setfl+ (make-pointer flags)))
+
+(defun set-nonblocking (fd)
+  (let ((flags (socket-flags fd)))
+    (setf (socket-flags fd) (logior flags +o-nonblock+))))
+
 ;; -----------------------------------------------------
 
 (defcstruct (pollfd :class pollfd-tclass)
@@ -431,6 +475,10 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
   (declare (type poll-context pc)
 	   (type pollfd pollfd))
   (push pollfd (poll-context-fds pc))
+
+  ;; Q: should we set the fd to be non-blocking here, to preserve semantics with Windows?
+  (set-nonblocking (pollfd-fd pollfd))
+  
   pollfd)
 
 (declaim (ftype (function (poll-context pollfd) null)))
