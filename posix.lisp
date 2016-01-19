@@ -423,6 +423,9 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
 (defconstant +f-getfl+ 3)
 (defconstant +f-setfl+ 4)
 
+#+linux(defconstant +fionbio+ 0x5421)
+#+(or freebsd darwin)(defconstant +fionbio+ 2147772030)
+
 (defun socket-flags (fd)
   (%fcntl fd +f-getfl+ (null-pointer)))
 
