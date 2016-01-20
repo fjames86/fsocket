@@ -8,7 +8,7 @@
 ;; --------------- UDP -----------------
 
 (defun recv-ipv6 ()
-  (let ((fd (open-socket :family fsocket::+af-inet6+))
+  (let ((fd (open-socket :family :inet6))
         (pc (open-poll))
         (buff (make-array 512 :element-type '(unsigned-byte 8))))
     (poll-register pc (make-instance 'pollfd
@@ -29,7 +29,7 @@
 
 
 (defun send-ipv6 (port)
-  (let ((fd (open-socket :family fsocket::+af-inet6+))
+  (let ((fd (open-socket :family :inet6))
         (pc (open-poll))
         (buff (make-array 512 :element-type '(unsigned-byte 8))))
     (poll-register pc (make-instance 'pollfd
@@ -53,7 +53,7 @@
 
 
 (defun recv-ipv6-tcp ()
-  (let ((fd (open-socket :family fsocket::+af-inet6+ :type :stream))
+  (let ((fd (open-socket :family :inet6 :type :stream))
         (pc (open-poll))
         (buff (make-array 512 :element-type '(unsigned-byte 8)))
         (cfd nil))
@@ -81,7 +81,7 @@
 
 
 (defun send-ipv6-tcp (port)
-  (let ((fd (open-socket :family fsocket::+af-inet6+ :type :stream))
+  (let ((fd (open-socket :family :inet6 :type :stream))
         (pc (open-poll))
         (buff (make-array 512 :element-type '(unsigned-byte 8))))
     (unwind-protect

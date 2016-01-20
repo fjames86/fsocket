@@ -157,6 +157,11 @@ Returns a new SOCKADDR-IN structure."
   (let ((saddr (make-sockaddr-in6)))
     (setf (sockaddr-in6-port saddr)
           (ntohs (foreign-slot-value ptr '(:struct sockaddr-in6) 'port))
+          (sockaddr-in6-flowinfo saddr)
+          (ntohs (foreign-slot-value ptr '(:struct sockaddr-in6) 'flowinfo))
+          (sockaddr-in6-scopeid saddr)
+          (ntohs (foreign-slot-value ptr '(:struct sockaddr-in6) 'scopeid))
+          ;; allocate an 8 uint16 vector for the inaddr6
           (sockaddr-in6-addr saddr) (make-array 8))
     (dotimes (i 8)
       (setf (aref (sockaddr-in6-addr saddr) i)
