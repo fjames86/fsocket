@@ -25,8 +25,11 @@
               (if pfds
                   (dolist (event (poll-events (pollfd-revents (first pfds))))
                     (case event
-                      (:pollout (format t "Connected~%")
-                                (socket-shutdown fd))))
+                      (:pollout (let ((sts (socket-option fd :socket :error)))
+                                  (if (zerop sts)
+                                      (format t "Connected~%")
+                                      (format t "Error connecting ~A~%" sts))
+                                  (socket-shutdown fd)))))
                   (format t "Timeout connecting.~%")))))
       (close-poll pc)
       (close-socket fd))))

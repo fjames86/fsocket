@@ -102,6 +102,9 @@ ADDR ::= local address. Can be either SOCKADDR-IN or SOCKADDR-IN6."
 #+linux(defconstant +ewouldblock+ 11)
 #+(or freebsd darwin)(defconstant +ewouldblock+ 35)
 
+#+linux(defconstant +einprogress+ 115)
+#+(or freebsd darwin)(defconstant +einprogress+ 36)
+
 (defun socket-connect (fd addr)
     "Connect the socket to the remote address.
 SOCK :: socket.
@@ -117,7 +120,7 @@ A :POLLOUT event indicates a subsequent socket-connect will complete immediately
          (let ((sts (%connect fd a (foreign-type-size '(:struct sockaddr-in)))))
            (if (= sts +socket-error+)
                (let ((ecode *errno*))
-                 (if (= ecode +ewouldblock+)
+                 (if (or (= ecode +einprogress+) (= ecode +ewouldblock+))
                      nil
                      (get-last-error ecode)))
                t))))
@@ -127,7 +130,7 @@ A :POLLOUT event indicates a subsequent socket-connect will complete immediately
          (let ((sts (%connect fd a (foreign-type-size '(:struct sockaddr-in6)))))
            (if (= sts +socket-error+)
                (let ((ecode *errno*))
-                 (if (= ecode +ewouldblock+)
+                 (if (or (= ecode +einprogress+) (= ecode +ewouldblock+))
                      nil
                      (get-last-error ecode))
                  t)))))))
@@ -169,7 +172,7 @@ A :POLLIN event indicates a subsequent socket-accept will complete immediately."
       (cond
         ((invalid-socket-p sts)
          (let ((ecode *errno*))
-           (if (= ecode +ewouldblock+)
+           (if (or (= ecode +einprogress+) (= ecode +ewouldblock+))
                nil
                (get-last-error ecode))))
         (t
@@ -423,7 +426,7 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
 (defconstant +f-getfl+ 3)
 (defconstant +f-setfl+ 4)
 
-#+linux(defconstant +fionbio+ 0x5421)
+#+linux(defconstant +fionbio+ #x5421)
 #+(or freebsd darwin)(defconstant +fionbio+ 2147772030)
 
 (defun socket-flags (fd)
@@ -628,8 +631,8 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 #+darwin(defconstant +arphrd-ether+ 1)
 
 #+linux(defconstant +arphrd-ppp+ 512)
-
 #+linux(defconstant +arphrd-loopback+ 772)
+#+linux(defconstant +arphrd-80211+ 801)
 
 ;;#+(or win32 windows)(defconstant +siocgifmtu+ #x8921)
 #+linux(defconstant +siocgifmtu+ #x8921)
@@ -639,6 +642,7 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 #+linux(defconstant +siocgifhwaddr+ #x8927)
 #+freebsd(defconstant +af-link+ #x12)
 #+darwin(defconstant +af-link+ #x12)
+#+(or freebsd darwin)(defconstant +af-ieee80211+ 37)
 
 (defun list-adapters ()
   (let ((ret nil))
@@ -727,7 +731,9 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
                            (setf (adapter-type ad) :loopback))
 			  ((= family +arphrd-ppp+) ;; ARPHRD_PPP
 			   (setf (adapter-type ad) :ppp))
-                          (t
+			  ((= family +arphrd-80211+) ;; ARPHRD_80211
+			   (setf (adapter-type ad) :ieee80211))
+              (t
                            ;; unknown type
                            (setf (adapter-type ad) family))))))))
 

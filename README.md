@@ -56,7 +56,7 @@ events are mapping to poll events.
 
 * OPEN-POLL :: open a polling context.
 * CLOSE-POLL :: close a polling context.
-* POLL-REGISTER :: register a socket with the poll context. 
+* POLL-REGISTER :: register a socket with the poll context.
 * POLL-UNREGISTER :: unregister a socket from the poll context.
 * POLL :: wait for something to happen.
 * DOEVENTS :: iterate over each of the fds with events pending.
@@ -118,8 +118,9 @@ On POSIX it simply calls poll().
 the socket to non-blocking mode. 
 * On POSIX systes `POLL-REGISTER` does nothing other than pushing the pollfd
 instance onto a list of pollfds stored with the poll context.
+* To preserve semantics, in posix systems the socket is put into non-blocking mode by calling `fcntl()` 
 * Therefore users should be aware that once they have registered with the
-poll context, the socket MAY now be in non-blocking mode.
+poll context, the socket will now be in non-blocking mode.
 
 ## 4.2 IP multicast 
 IPv4 UDP multicast is implemented and working. See test/test2.lisp.
@@ -153,7 +154,7 @@ layout, adjusting constants etc.).
 - [x] Type all the stuff in for POSIX systems (Linux,FreeBSD)
 - [x] LIST-ADAPTERS
 - [ ] Write a whole suite of tests to check it all works
-- [ ] Write something non-trivial using it to make sure it has a sane API
+- [x] Write something non-trivial using it to make sure it has a sane API
 
 ## 7. License
 Licensed under the terms of the MIT license.
