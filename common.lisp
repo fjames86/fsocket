@@ -188,9 +188,10 @@ Returns a new SOCKADDR-IN structure."
   ptr)
 
 
-(defun sockaddr-in6 (&optional addr port)
+(defun sockaddr-in6 (&optional addr port scopeid)
   (make-sockaddr-in6 :addr (or addr #(0 0 0 0 0 0 0 0))
-                     :port (or port 0)))
+                     :port (or port 0)
+                     :scopeid (or scopeid 0)))
 
 
 (defun loopback-p (addr)

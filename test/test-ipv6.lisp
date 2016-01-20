@@ -28,7 +28,7 @@
   (format t "DONE~%"))
 
 
-(defun send-ipv6 (port)
+(defun send-ipv6 (addr)
   (let ((fd (open-socket :family :inet6))
         (pc (open-poll))
         (buff (make-array 512 :element-type '(unsigned-byte 8))))
@@ -39,8 +39,7 @@
          (progn
            (socket-bind fd (sockaddr-in6))
            (format t "Bound to ~A~%" (socket-name fd))
-           (fsocket:socket-sendto fd buff
-                                  (sockaddr-in6 #(0 0 0 0 0 0 0 1) port))
+           (fsocket:socket-sendto fd buff addr)
            (when (poll pc :timeout 30000)
              (multiple-value-bind (cnt raddr) (fsocket:socket-recvfrom fd buff)
                (format t "recvfrom ~A ~A~%" cnt raddr)
