@@ -116,6 +116,16 @@
 
       (when np (setf pos (1+ np))))))
 
+(defun dotted-quad-p (string)
+  (dotted-quad-to-inaddr string nil))
+
+(defun inaddr-to-dotted-quad (inaddr)
+  (format nil "~A.~A.~A.~A"
+	  (aref inaddr 0)
+	  (aref inaddr 1)
+	  (aref inaddr 2)
+	  (aref inaddr 3)))
+
 (defun sockaddr-in (&optional inaddr port)
   "Allocate a SOCKADDR-IN address structure. 
 INADDR ::= a vector of 4 octets specifying the internet address. May be 
