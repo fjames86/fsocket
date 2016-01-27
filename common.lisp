@@ -111,8 +111,12 @@
 	(if error-p
 	    (error "Invalid dotted quad string")
 	    (return-from dotted-quad-to-inaddr nil)))
-      
-      (setf (aref addr i) (parse-integer string :start (or pos 0) :end np))
+
+      (let ((x (parse-integer string
+			      :start (or pos 0) :end np
+			      :junk-allowed (not error-p))))
+	(when (null x) (return-from dotted-quad-to-inaddr nil))
+	(setf (aref addr i) x))
 
       (when np (setf pos (1+ np))))))
 
