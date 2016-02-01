@@ -815,3 +815,20 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
            :collect (mem-aref ap '(:struct sockaddr-in) i))))))
 
 
+;; int gethostname(char *name, size_t len);
+(defcfun (%get-host-name "gethostname") :int32
+  (name :pointer)
+  (len size-t))
+
+;; int getdomainname(char *name, size_t len);
+(defcfun (%get-domain-name "getdomainname") :int32
+  (name :pointer)
+  (len size-t))
+
+(defun get-host-name ()
+  (with-foreign-object (p :uint8 256)
+    (%get-host-name p 256)
+    (let ((hn (foreign-string-to-lisp p)))
+      (%get-domain-name p 256)
+      (let ((dn (foreign-string-to-lisp p)))
+	(values hn dn)))))

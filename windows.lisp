@@ -1226,53 +1226,8 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 				  :port 53))))
             (network-params-dns-servers np))))
 
-
-;; struct hostent {
-;;   char FAR      *h_name;
-;;   char FAR  FAR **h_aliases;
-;;   short         h_addrtype;
-;;   short         h_length;
-;;   char FAR  FAR **h_addr_list;
-;; }
-;; (defcstruct hostent 
-;;   (name :pointer)
-;;   (aliases :pointer)
-;;   (addrtype :int16)
-;;   (len :int16)
-;;   (addrs :pointer))
-
-;; struct hostent* FAR gethostbyname(
-;;   _In_ const char *name
-;; );
-;; (defcfun (%gethostbyname "gethostbyname")
-;;     :pointer
-;;   (name :pointer))
-
-;; (defun get-host-by-name (name)
-;;   "Lookup the known addresses for the host named NAME. Returns a list of SOCKADDR-IN or SOCKADDR-IN6 structures."
-;;   (with-foreign-string (n name)
-;;     (let ((hent (%gethostbyname n)))
-;;       (cond
-;; 	((null-pointer-p hent)
-;; 	 (get-last-error))
-;; 	(t 	 
-;; 	 (do ((addrs nil)
-;; 	      (family (foreign-slot-value hent '(:struct hostent) 'addrtype))
-;; 	      (ads (foreign-slot-value hent '(:struct hostent) 'addrs))
-;; 	      (i 0 (1+ i)))
-;; 	     ((null-pointer-p (mem-aref ads :pointer i))
-;; 	      addrs)
-;; 	   (let ((a (mem-aref ads :pointer i)))
-;; 	     (cond
-;; 	       ((= family +af-inet+)
-;; 		(let ((addr (make-array 4)))
-;; 		  (dotimes (i 4)
-;; 		    (setf (aref addr i) (mem-aref a :uint8 i)))
-;; 		  (push (make-sockaddr-in :addr addr) addrs)))
-;; 	       ((= family +af-inet6+)
-;; 		(let ((addr (make-array 8)))
-;; 		  (dotimes (i 8)
-;; 		    (setf (aref addr i) (mem-aref a :uint16 i)))
-;; 		  (push (make-sockaddr-in6 :addr addr) addrs)))
-;; 	       (t 
-;; 		(error 'fsocket-error :msg (format nil "Unknown address family ~A" family)))))))))))
+(defun get-host-name ()
+  "Returns (values hostname domain-name)."
+  (let ((np (get-network-params)))
+    (values (network-params-hostname np)
+	    (network-params-domain-name np))))

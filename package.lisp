@@ -83,6 +83,7 @@
 
            ;; DNS functions
            #:get-name-servers
-           
+           #:get-host-name
+	   
            ))
 
