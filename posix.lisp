@@ -81,21 +81,22 @@ Returns the socket file descriptor."
   "Bind the socket to the local address.
 FD ::= socket file descriptor.
 ADDR ::= local address. Can be either SOCKADDR-IN or SOCKADDR-IN6."
-  (etypecase addr
-    (sockaddr-in
-     (with-foreign-object (p '(:struct sockaddr-in))
-       (setf (mem-aref p '(:struct sockaddr-in)) addr)
-       (let ((sts (%bind fd p (foreign-type-size '(:struct sockaddr-in)))))
-         (if (= sts +socket-error+)
-             (get-last-error)
-             nil))))
-    (sockaddr-in6
-     (with-foreign-object (p '(:struct sockaddr-in6))
-       (setf (mem-aref p '(:struct sockaddr-in6)) addr)
-       (let ((sts (%bind fd p (foreign-type-size '(:struct sockaddr-in6)))))
-         (if (= sts +socket-error+)
-             (get-last-error)
-             nil))))))
+  (with-foreign-object (p :uint8 +sockaddr-storage+)
+    (let ((len +sockaddr-storage+))
+      (etypecase addr
+        (sockaddr-in
+         (setf (mem-aref p '(:struct sockaddr-in)) addr
+               len (foreign-type-size '(:struct sockaddr-in))))
+        (sockaddr-in6
+         (setf (mem-aref p '(:struct sockaddr-in6)) addr
+               len (foreign-type-size '(:struct sockaddr-in6))))
+        (string
+         (setf (mem-aref p '(:struct sockaddr-un)) addr
+               len (foreign-type-size '(:struct sockaddr-un)))))
+      (let ((sts (%bind fd p len)))
+        (if (= sts +socket-error+)
+            (get-last-error)
+            nil)))))
 
 ;; int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 (defcfun (%connect "connect") :int32
