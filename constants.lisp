@@ -14,6 +14,10 @@
 #+freebsd(defconstant +af-inet6+ 28)
 #+darwin(defconstant +af-inet6+ 30)
 
+#+linux(defconstant +af-unix+ 1)
+#+freebsd(defconstant +af-unix+ 1)
+#+darwin(defconstant +af-unix+ 1)
+
 (defconstant +sock-stream+ 1)
 (defconstant +sock-dgram+ 2)
 

@@ -26,6 +26,9 @@
 
 ;; --------------------------------------
 
+;; For when we need to allocate a bit of memory to receive addresses 
+(defconstant +sockaddr-storage+ 128) 
+
 (defconstant +socket-error+ -1)
 (defun invalid-socket-p (sock)
   (= sock -1))
@@ -38,7 +41,7 @@
 
 (defun open-socket (&key (family :inet) (type :datagram) protocol)
     "Open a socket. Call CLOSE-SOCKET to free resources.
-FAMILY ::= address family integer. Either :INET or :INET6.
+FAMILY ::= address family integer. Either :INET, :INET6 or :UNIX.
 TYPE ::= socket type name, defaults to SOCK_DGRAM. Can be :datagram or :stream.
 PROTOCOL ::= socket protocol integer. Usually doesn't need to be specified.
 
@@ -47,7 +50,8 @@ Returns the socket file descriptor."
              (type (or null integer) protocol))    
     (let ((fd (%socket (ecase family
                          (:inet +af-inet+)
-                         (:inet6 +af-inet6+))
+                         (:inet6 +af-inet6+)
+                         (:unix +af-unix+))
                      (ecase type
                        (:stream 1)
                        (:datagram 2))
@@ -113,27 +117,25 @@ ADDR ::= remote address.
 Returns true if the operation completed successfully.
 If the socket is in non-blocking mode and the operation would block returns NIL. 
 A :POLLOUT event indicates a subsequent socket-connect will complete immediately."
-    (etypecase addr
-      (sockaddr-in
-       (with-foreign-object (a '(:struct sockaddr-in))
-         (setf (mem-aref a '(:struct sockaddr-in)) addr)
-         (let ((sts (%connect fd a (foreign-type-size '(:struct sockaddr-in)))))
-           (if (= sts +socket-error+)
-               (let ((ecode *errno*))
-                 (if (or (= ecode +einprogress+) (= ecode +ewouldblock+))
-                     nil
-                     (get-last-error ecode)))
-               t))))
-      (sockaddr-in6
-       (with-foreign-object (a '(:struct sockaddr-in6))
-         (setf (mem-aref a '(:struct sockaddr-in6)) addr)
-         (let ((sts (%connect fd a (foreign-type-size '(:struct sockaddr-in6)))))
-           (if (= sts +socket-error+)
-               (let ((ecode *errno*))
-                 (if (or (= ecode +einprogress+) (= ecode +ewouldblock+))
-                     nil
-                     (get-last-error ecode))
-                 t)))))))
+    (with-foreign-object (a :uint8 +sockaddr-storage+)
+      (let ((len +sockaddr-storage+))
+        (etypecase addr
+          (sockaddr-in
+           (setf (mem-aref a '(:struct sockaddr-in)) addr
+                 len (foreign-type-size '(:struct sockaddr-in))))
+          (sockaddr-in6
+           (setf (mem-aref a '(:struct sockaddr-in6)) addr
+                 len (foreign-type-size '(:struct sockaddr-in6))))
+          (string 
+           (setf (mem-aref a '(:struct sockaddr-un)) addr
+                 len (foreign-type-size '(:struct sockaddr-un)))))
+        (let ((sts (%connect fd a len)))
+          (if (= sts +socket-error+)
+              (let ((ecode *errno*))
+                (if (or (= ecode +einprogress+) (= ecode +ewouldblock+))
+                    nil
+                    (get-last-error ecode)))
+              t)))))
 
 ;; int listen(int sockfd, int backlog);
 (defcfun (%listen "listen") :int32
@@ -163,9 +165,9 @@ ADDR ::= address of the connected socket.
 
 If the socket is in non-blocking mode and the operation would block returns nil.
 A :POLLIN event indicates a subsequent socket-accept will complete immediately."
-  (with-foreign-objects ((buffer :uint8 32)
+  (with-foreign-objects ((buffer :uint8 +sockaddr-storage+)
                          (alen :uint32))
-    (setf (mem-aref alen :uint32) 32)
+    (setf (mem-aref alen :uint32) +sockaddr-storage+)
     (let ((sts (%accept fd
                         buffer
                         alen)))
@@ -176,18 +178,12 @@ A :POLLIN event indicates a subsequent socket-accept will complete immediately."
                nil
                (get-last-error ecode))))
         (t
-         (let ((family #+(or freebsd darwin)(mem-aref buffer :uint8 1)
-                       #-(or freebsd darwin)(mem-aref buffer :uint16)))
-           (cond 
-             ((= family +af-inet+)
-              (let ((addr (mem-aref buffer '(:struct sockaddr-in))))
-                (values sts addr)))
-             ((= family +af-inet6+)
-              (let ((addr (mem-aref buffer '(:struct sockaddr-in6))))
-                (values sts addr)))
-             (t
-              (close-socket sts)
-              (error 'fsocket-error :msg (format nil "Unknown address family ~A" family))))))))))
+         (handler-bind ((error (lambda (e)
+                                 (declare (ignore e))
+                                 (close-socket sts)
+                                 nil)))
+           (let ((addr (translate-sockaddr-from-foreign buffer)))
+             (values sts addr))))))))
 
 ;; int shutdown(int sockfd, int how);
 (defcfun (%shutdown-socket "shutdown") :int32
@@ -266,7 +262,7 @@ Returns the number of octets actually sent, which can be less than the number re
   (let ((count (- (or end (length buffer)) start))
         (alen 0))
     (with-foreign-objects ((p :uint8 count)
-                           (a :uint8 32))
+                           (a :uint8 +sockaddr-storage+))
       (dotimes (i count)
         (setf (mem-aref p :uint8 i)
               (aref buffer (+ start i))))
@@ -276,7 +272,10 @@ Returns the number of octets actually sent, which can be less than the number re
                alen (foreign-type-size '(:struct sockaddr-in))))
         (sockaddr-in6
          (setf (mem-aref a '(:struct sockaddr-in6)) addr
-               alen (foreign-type-size '(:struct sockaddr-in6)))))
+               alen (foreign-type-size '(:struct sockaddr-in6))))
+        (string 
+         (setf (mem-aref a '(:struct sockaddr-un)) addr
+               alen (foreign-type-size '(:struct sockaddr-un)))))
       (let ((sts (%sendto fd
                           p
                           count
@@ -342,9 +341,9 @@ ADDR ::= remote address from which the data was received.
 "
   (let ((count (- (or end (length buffer)) start)))
     (with-foreign-objects ((p :uint8 count)
-                           (a :uint8 32)
+                           (a :uint8 +sockaddr-storage+)
                            (alen :uint32))
-      (setf (mem-aref alen :uint32) 32)
+      (setf (mem-aref alen :uint32) +sockaddr-storage+)
       (let ((sts (%recvfrom fd
                             p
                             count
@@ -357,17 +356,8 @@ ADDR ::= remote address from which the data was received.
           (t
            (dotimes (i sts)
              (setf (aref buffer (+ start i)) (mem-ref p :uint8 i)))
-           (let ((family #+(or freebsd darwin)(mem-aref a :uint8 1)
-                         #-(or freebsd darwin)(mem-aref a :uint16)))
-             (cond
-               ((= family +af-inet+)
-                (let ((addr (mem-aref a '(:struct sockaddr-in))))
-                  (values sts addr)))
-               ((= family +af-inet6+)
-                (let ((addr (mem-aref a '(:struct sockaddr-in6))))
-                  (values sts addr)))
-               (t (error 'fsocket-error :msg (format nil "Unknown address family ~A" family)))))))))))
-
+           (let ((addr (translate-sockaddr-from-foreign a)))
+             (values sts addr))))))))
 
 ;; int getsockname(int socket, struct sockaddr *restrict address, socklen_t *restrict address_len);
 (defcfun (%getsockname "getsockname") :int32
@@ -378,23 +368,13 @@ ADDR ::= remote address from which the data was received.
     "Get the address to which the socket has been bound.
 FD ::= socket as returned from OPEN-SOCKET.
 Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
-  (with-foreign-objects ((addr :uint32 32)
+  (with-foreign-objects ((addr :uint32 +sockaddr-storage+)
                          (len :uint32))
-    (setf (mem-aref len :uint32) 32)
+    (setf (mem-aref len :uint32) +sockaddr-storage+)
     (let ((sts (%getsockname fd addr len)))
       (when (= sts +socket-error+)
         (get-last-error))
-      (let ((family #+(or freebsd darwin)(mem-aref addr :uint8 1)
-                    #-(or freebsd darwin)(mem-aref addr :uint16)))
-        (cond
-          ((= family +af-inet+)
-           (mem-aref addr '(:struct sockaddr-in)))
-          ((= family +af-inet6+)
-           (mem-aref addr '(:struct sockaddr-in6)))
-          (t (error 'fsocket-error :msg (format nil "Unknown address family ~A" family))))))))
-
-
-
+      (translate-sockaddr-from-foreign addr))))
 
 ;; int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
 (defcfun (%getsockopt "getsockopt") :int32

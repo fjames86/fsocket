@@ -230,6 +230,50 @@ ADDR ::= a SOCKADDR-IN or SOCKADDR-IN6 address structure."
        (and (equalp (sockaddr-in6-addr sa1) (sockaddr-in6-addr sa2))
 	    (= (sockaddr-in6-port sa1) (sockaddr-in6-port sa2)))))))0
 
+;; ----------------------------
+
+;; unix sockets are posix only 
+#+(or linux freebsd darwin)
+(progn
+
+(defcstruct (sockaddr-un :class sockaddr-un-tclass)
+  (family :uint16)
+  (path :uint8 :count 108))
+
+(defmethod translate-from-foreign (ptr (type sockaddr-un-tclass))
+  ;; UNIX sockets are just strings naming files 
+  (foreign-string-to-lisp (foreign-slot-pointer ptr 'sockaddr-un 'path)))
+
+(defmethod translate-into-foreign-memory ((saddr string) (type sockaddr-un-tclass) ptr)
+  ;; freebsd has a slightly different structure layout.
+  ;; the first 16 bits are split into an 8-bit length and an 8-bit family, instead of the usual 16-bit family
+  #+freebsd(setf (mem-ref ptr :uint8 0) 16 ;; structure size 
+                 (mem-ref ptr :uint8 1) +af-unix+)
+  #-freebsd(setf (foreign-slot-value ptr '(:struct sockaddr-un) 'family) +af-unix+)
+
+  (lisp-string-to-foreign saddr 
+                          (foreign-slot-pointer ptr '(:struct sockaddr-un) 'path)
+                          108)
+  ptr)
+
+)
+
+;; --------------------------
+
+(defun translate-sockaddr-from-foreign (ptr)
+  (let ((family 
+         #+freebsd(mem-ref ptr :uint8 1)
+         #-freebsd(mem-ref ptr :uint16 0)))
+    (cond
+      ((= family +af-inet+)
+       (mem-ref ptr '(:struct sockaddr-in)))
+      ((= family +af-inet6+)
+       (mem-ref ptr '(:struct sockaddr-in6)))
+      #+(or linux freebsd darwin)
+      ((= family +af-unix+)
+       (mem-ref ptr '(:struct sockaddr-un)))
+      (t (error 'fsocket-error :msg (format nil "Unknown address family ~A" family))))))
+      
 ;; --------------------------
 
 ;; Q: should the events be a bitmask or a list of symbols?
