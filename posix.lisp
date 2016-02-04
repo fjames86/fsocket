@@ -80,7 +80,7 @@ Returns the socket file descriptor."
 (defun socket-bind (fd addr)
   "Bind the socket to the local address.
 FD ::= socket file descriptor.
-ADDR ::= local address. Can be either SOCKADDR-IN or SOCKADDR-IN6."
+ADDR ::= local address. Can be SOCKADDR-IN, SOCKADDR-IN6 or string."
   (with-foreign-object (p :uint8 +sockaddr-storage+)
     (let ((len +sockaddr-storage+))
       (etypecase addr
@@ -169,9 +169,7 @@ A :POLLIN event indicates a subsequent socket-accept will complete immediately."
   (with-foreign-objects ((buffer :uint8 +sockaddr-storage+)
                          (alen :uint32))
     (setf (mem-aref alen :uint32) +sockaddr-storage+)
-    (let ((sts (%accept fd
-                        buffer
-                        alen)))
+    (let ((sts (%accept fd buffer alen)))
       (cond
         ((invalid-socket-p sts)
          (let ((ecode *errno*))
