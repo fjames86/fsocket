@@ -28,6 +28,7 @@
            #:close-poll
            #:poll-register
            #:poll-unregister 
+           #:poll-find 
            #:poll
            #:poll-context
            #:poll-context-fds

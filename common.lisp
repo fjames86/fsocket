@@ -242,7 +242,7 @@ ADDR ::= a SOCKADDR-IN or SOCKADDR-IN6 address structure."
 
 (defmethod translate-from-foreign (ptr (type sockaddr-un-tclass))
   ;; UNIX sockets are just strings naming files 
-  (foreign-string-to-lisp (foreign-slot-pointer ptr 'sockaddr-un 'path)))
+  (foreign-string-to-lisp (foreign-slot-pointer ptr '(:struct sockaddr-un) 'path)))
 
 (defmethod translate-into-foreign-memory ((saddr string) (type sockaddr-un-tclass) ptr)
   ;; freebsd has a slightly different structure layout.

@@ -478,6 +478,16 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
         (remove pollfd (poll-context-fds pc)))
   nil)
 
+(defun poll-find (pc fd)
+  "Lookup the pollfd for the file descriptor.
+PC ::= poll context.
+FD ::= file desctipror.
+Returns the pollfd with the matching file descriptor if found."
+  (declare (type poll-context pc))
+  (find fd (poll-context-fds pc) 
+        :key #'pollfd-fd 
+        :test #'=))
+
 ;; int poll(struct pollfd *fds, nfds_t nfds, int timeout);
 (defcfun (%poll "poll") :int32
   (fds :pointer)

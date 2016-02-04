@@ -741,6 +741,16 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
   
   nil)
 
+(defun poll-find (pc fd)
+  "Lookup the pollfd for the file descriptor.
+PC ::= poll context.
+FD ::= file desctipror.
+Returns the pollfd with the matching file descriptor if found."
+  (declare (type poll-context pc))
+  (find fd (poll-context-fds pc) 
+        :key #'pollfd-fd 
+        :test #'pointer-eq))
+
 ;;(defconstant +wsa-wait-event-0+ 0)
 (defconstant +wsa-wait-timeout+ 258)
 
