@@ -135,6 +135,17 @@ the socket, for instance and receive buffer or other contextual information. All
 POLLFD and provide instances of your own class to POLL-REGISTER. For an example see TCP-ECHO in test/test1.lisp
 where I provide different subclasses for the listening TCP socket and its connections. 
 
+### 4.4 UDP broadcast
+There can be issues when performing UDP broadcast to address 255.255.255.255 on FreeBSD.
+This is due to the way FreeBSD implements UDP broadcasting, which is different to Linux and Windows in this respect. 
+
+### 4.5 Unix Domain sockets 
+On POSIX platforms (for fsocket, that means Linux, FreeBSD, Darwin i.e. everywhere but Windows) unix domain sockets
+are also supported as a family `:UNIX` to `OPEN-SOCKET`. Currently only `:STREAM` type sockets are supported, datagram 
+type unix domain sockets may be supported at some point in the future. 
+Unlike `:INET` and `:INET6` families, `:UNIX` sockets are addressed using a string which represents a file
+on the host. Otherwise their usage is the same. See `test/test-unix.lisp` for an example.
+
 ## 5. Implementations and operatings systems
 Because we are calling directly into the host API using CFFI, the implementation portability issues
 are handled by CFFI. I intend to support Windows, Linux, FreeBSD and OSX. Currently the following have been
@@ -147,7 +158,7 @@ layout, adjusting constants etc.).
 * Tested: LispWorks Personal Edition 6.1.1 Windows 8.1
 * Tested: CCL x86-64 1.11 OSX
 * TODO: CCL (Windows, Linux, FreeBSD)
-* TODO: arch other than x86
+* TODO: arch other than x86 or x86-64.
 * TODO: others
 
 ## 6. TODO
@@ -155,6 +166,8 @@ layout, adjusting constants etc.).
 - [x] LIST-ADAPTERS
 - [ ] Write a whole suite of tests to check it all works
 - [x] Write something non-trivial using it to make sure it has a sane API
+- [ ] Support raw sockets? Unlikely to happen anytime soon.
+- [x] Unix domain sockets
 
 ## 7. License
 Licensed under the terms of the MIT license.
