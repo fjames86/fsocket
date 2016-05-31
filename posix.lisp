@@ -633,6 +633,9 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 #+darwin(defconstant +af-link+ #x12)
 #+(or freebsd darwin)(defconstant +af-ieee80211+ 37)
 
+#+linux(defconstant +siocgifnetmask+ #x891b)
+#+linux(defconstant +siocgifbrdaddr+ #x8919)
+
 (defun list-adapters ()
   (let ((ret nil))
     (with-foreign-object (ifaddrs :pointer)
@@ -681,15 +684,23 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
                        (setf (adapter-address ad) mac
                              (adapter-type ad) :ethernet))))))
 
-	      ;; get the netmask
-	      (let ((np (foreign-slot-value ifa '(:struct ifaddrs) 'netmask)))
-		(unless (null-pointer-p np)
-		  (setf (adapter-netmask ad) (mem-aref np '(:struct sockaddr-in)))))
-	      
-	      ;; get the broadcast
-	      (let ((bp (foreign-slot-value ifa '(:struct ifaddrs) 'broadcast)))
-		(unless (null-pointer-p bp)
-		  (setf (adapter-broadcast ad) (mem-aref bp '(:struct sockaddr-in)))))	      	      
+	      ;; get the netmask and broadcast on freebsd and darwin
+	      #-linux 
+	      (progn
+		(let ((np (foreign-slot-value ifa '(:struct ifaddrs) 'netmask)))
+		  (unless (null-pointer-p np)
+		    (let ((family (translate-sockaddr-family np)))
+		      (when (= family +af-inet+)
+			(push (translate-sockaddr-from-foreign np)
+			      (adapter-netmask ad))))))
+		
+		;; get the broadcast
+		(let ((bp (foreign-slot-value ifa '(:struct ifaddrs) 'broadcast)))
+		  (unless (null-pointer-p bp)
+		    (let ((family (translate-sockaddr-family bp)))
+		      (when (= family +af-inet+)
+			(push (translate-sockaddr-from-foreign bp)
+			      (adapter-broadcast ad)))))))
 	      
               ;; get the index
               (let ((index (%if-nametoindex (foreign-slot-value ifa '(:struct ifaddrs) 'name))))
@@ -707,7 +718,27 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
                       (ifdata (foreign-slot-pointer ifr '(:struct ifreq) 'data)))
                   (unless (= sts +socket-error+)
                     (setf (adapter-mtu ad) (foreign-slot-value ifdata '(:union ifreq-data) 'mtu))))
-                
+
+                #+linux 
+		;; have to get netmask usuing ioctl()
+		(let ((sts (%ioctl fd 
+				   +siocgifnetmask+
+				   ifr))
+		      (ifdata (foreign-slot-pointer ifr '(:struct ifreq) 'data)))
+		  (unless (= sts +socket-error+) 
+		    (push (translate-sockaddr-from-foreign ifdata) 
+			  (adapter-netmask ad))))
+
+		#+linux 
+		;; have to get netmask usuing ioctl()
+		(let ((sts (%ioctl fd 
+				   +siocgifbrdaddr+
+				   ifr))
+		      (ifdata (foreign-slot-pointer ifr '(:struct ifreq) 'data)))
+		  (unless (= sts +socket-error+) 
+		    (push (translate-sockaddr-from-foreign ifdata) 
+			  (adapter-broadcast ad))))
+
                 ;; have to get hardware address on linux by calling ioctl()
                 #+linux
                 (let ((sts (%ioctl fd
@@ -732,7 +763,7 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 			   (setf (adapter-type ad) :ppp))
 			  ((= family +arphrd-80211+) ;; ARPHRD_80211
 			   (setf (adapter-type ad) :ieee80211))
-              (t
+			  (t
                            ;; unknown type
                            (setf (adapter-type ad) family))))))))
 

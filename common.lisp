@@ -260,6 +260,10 @@ ADDR ::= a SOCKADDR-IN or SOCKADDR-IN6 address structure."
 
 ;; --------------------------
 
+(defun translate-sockaddr-family (ptr)
+  #+freebsd(mem-ref ptr :uint8 1)
+  #-freebsd(mem-ref ptr :uint16 0))
+
 (defun translate-sockaddr-from-foreign (ptr)
   (let ((family 
          #+freebsd(mem-ref ptr :uint8 1)
