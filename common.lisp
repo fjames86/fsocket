@@ -346,3 +346,67 @@ to a list of symbols naming each pending event."
 ;;  dns
   status
   mtu)
+
+
+(defmacro with-udp-socket ((var &optional port) &body body)
+  "Evaludate BODY with VAR bound to a UDP socket. 
+VAR ::= variable that holds the socket.
+PORT ::= the port to bind VAR to, defaults to the wildcard port 0."
+  `(let ((,var (open-socket)))
+     (socket-bind ,var (sockaddr-in nil ,port))
+     (unwind-protect (progn ,@body)
+       (close-socket ,var))))
+
+(defmacro with-tcp-socket ((var &optional port) &body body)
+  "Evaluate BODY with VAR bound to a listening TCP socket.
+VAR ::= variable that holds the listening TCP socket.
+PORT ::= port to bind socket to, defaults to the wildcard port 0."
+  `(let ((,var (open-socket :type :stream)))
+     (socket-bind ,var (sockaddr-in nil ,port))
+     (socket-listen ,var)
+     (unwind-protect (progn ,@body)
+       (close-socket ,var))))
+
+(defmacro with-tcp-connection ((var addr) &body body)
+  "Evaluate BODY with VAR bound to a connected TCP socket.
+VAR ::= variable
+ADDR ::= address to connect to."
+  `(let ((,var (open-socket :type :stream)))
+     (unwind-protect
+	  (progn
+	    (socket-bind ,var (sockaddr-in nil nil))
+	    (socket-connect ,var ,addr)
+	    ,@body)
+       (close-socket ,var))))
+
+(defmacro with-socket ((var) &body body)
+  "Execute the body ensuring the socket bound to VAR is closed."
+  `(unwind-protect (progn ,@body)
+     (close-socket ,var)))
+
+  
+(defmacro with-poll ((var) &body body)
+  "Evaludate BODY with VAR bound to a poll context."
+  `(let ((,var (open-poll)))
+     (unwind-protect (progn ,@body)
+       (close-poll ,var))))
+
+(defun sockaddr-string (addr)
+  "Generate a string of format a.b.c.d:port from the address."
+  (etypecase addr
+    (sockaddr-in
+     (let ((a (sockaddr-in-addr addr)))
+       (format nil "~A.~A.~A.~A:~A"
+	       (aref a 0) (aref a 1) (aref a 2) (aref a 3) (sockaddr-in-port addr))))))
+
+(defun string-sockaddr (string)
+  "Parses a string in the format a.b.c.d[:port] i.e. a dotted quad with
+optional port. If the port is not specified it defaults to 0."
+  (let ((pos (position #\: string :test #'char=)))
+    (let ((instr (if pos
+		     (subseq string 0 pos)
+		     string)))
+      (sockaddr-in (dotted-quad-to-inaddr instr)
+		   (if pos
+		       (parse-integer string :start (1+ pos))
+		       0)))))

@@ -123,7 +123,7 @@
 
 (defun tcp-send-test (port)
   (let ((fd (open-socket :type :stream))
-	(buffer (make-array 16 :initial-element 0)))
+	(buffer (make-array 16 :initial-element 0 :element-type '(unsigned-byte 8))))
     (unwind-protect 
 	 (progn
 	   (socket-bind fd (make-sockaddr-in))

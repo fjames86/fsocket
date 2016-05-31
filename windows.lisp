@@ -210,7 +210,12 @@ ADDR ::= local address. SOCKADDR-IN or SOCKADDR-IN6 address."
 (defun socket-connect (sock addr)
   "Connect the socket to the remote address.
 SOCK :: socket.
-ADDR ::= remote address."
+ADDR ::= remote address.
+
+Returns true if the connection was established or nil if a non-blocking
+connect was initiated. In this case you should wait using POLL for 
+a :POLLOUT status and call SOCKET-CONNECT again. 
+If the connection fails an error is signalled."
   (with-foreign-object (a :uint8 +sockaddr-storage+)
     (let ((len +sockaddr-storage+))
       (etypecase addr

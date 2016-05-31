@@ -85,6 +85,20 @@
            ;; DNS functions
            #:get-name-servers
            #:get-host-name
+
+	   #:with-socket 
+	   #:with-udp-socket 
+	   #:with-tcp-socket
+	   #:with-tcp-connection 
+	   #:with-poll
+
+	   #:sockaddr-string
+	   #:string-sockaddr
 	   
+	   ;; #:make-tcp-stream
+	   
+	   #:open-udp-socket
+	   #:open-tcp-socket
+	   #:open-tcp-connection 
            ))
 

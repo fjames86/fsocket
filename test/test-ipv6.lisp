@@ -7,7 +7,7 @@
 
 ;; --------------- UDP -----------------
 
-(defun recv-ipv6 ()
+(defun recv-ipv6 (&optional (stream *standard-output*))
   (let ((fd (open-socket :family :inet6))
         (pc (open-poll))
         (buff (make-array 512 :element-type '(unsigned-byte 8))))
@@ -17,16 +17,19 @@
     (unwind-protect
          (progn
            (socket-bind fd (sockaddr-in6))
-           (format t "Bound to ~A~%" (socket-name fd))
+           (format stream "Bound to ~A~%" (socket-name fd))
            (when (poll pc :timeout 30000)
              (multiple-value-bind (cnt raddr) (fsocket:socket-recvfrom fd buff)
-               (format t "recvfrom ~A ~A~%" cnt raddr)
-               (packet:hd buff)
+               (format stream "recvfrom ~A ~A~%" cnt raddr)
                (socket-sendto fd buff raddr))))
       (close-poll pc)            
       (close-socket fd)))
-  (format t "DONE~%"))
+  (format stream "DONE~%"))
 
+(defun recv-ipv6* ()
+  (let ((stream *standard-output*))
+    (bt:make-thread (lambda () (recv-ipv6 stream))
+		    :name "recv-ipv6-thread")))
 
 (defun send-ipv6 (addr)
   (let ((fd (open-socket :family :inet6))
@@ -42,8 +45,7 @@
            (fsocket:socket-sendto fd buff addr)
            (when (poll pc :timeout 30000)
              (multiple-value-bind (cnt raddr) (fsocket:socket-recvfrom fd buff)
-               (format t "recvfrom ~A ~A~%" cnt raddr)
-               (packet:hd buff))))
+               (format t "recvfrom ~A ~A~%" cnt raddr))))
       (close-poll pc)            
       (close-socket fd))))
   
@@ -70,7 +72,6 @@
                (setf cfd c)
                (let ((cnt (fsocket:socket-recv cfd buff)))
                  (format t "recvfrom ~A ~A~%" cnt raddr)
-                 (packet:hd buff)
                  (socket-send cfd buff)))))
       (close-poll pc)
       (when cfd (socket-shutdown cfd) (close-socket cfd))
@@ -94,7 +95,6 @@
            (fsocket:socket-send fd buff)
            (when (poll pc :timeout 30000)
              (let ((cnt (fsocket:socket-recv fd buff)))
-               (format t "recvfrom ~A~%" cnt)
-               (packet:hd buff))))
+               (format t "recvfrom ~A~%" cnt))))
       (close-poll pc)            
       (close-socket fd))))

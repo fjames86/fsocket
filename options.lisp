@@ -254,3 +254,25 @@ Returns the unbound socket."
       (setf (socket-option sock :ip :ip-multicast-ttl) ttl)
 
       sock)))
+
+
+(defun open-udp-socket (&optional port)
+  "Open a UDP socket bound to local port PORT, defaults to wildcard port."
+  (let ((fd (open-socket)))
+    (socket-bind fd (sockaddr-in nil port))
+    fd))
+
+(defun open-tcp-socket (&optional port)
+  "Open a listening TCP socket bound to local port PORT, defaults to wildcard port."
+  (let ((fd (open-socket :type :stream)))
+    (socket-bind fd (sockaddr-in nil port))
+    (socket-listen fd)
+    fd))
+
+(defun open-tcp-connection (addr)
+  "Open a TCP connection to ADDR."
+  (declare (type sockaddr-in addr))
+  (let ((fd (open-socket :type :stream)))
+    (socket-bind fd (sockaddr-in))
+    (socket-connect fd addr)
+    fd))
