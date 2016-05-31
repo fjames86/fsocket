@@ -788,7 +788,7 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 
 ;; (use-foreign-library lresolv)
 
-(defcfun (%res-ninit "__res_ninit") :int32
+(defcfun (%res-ninit #+darwin "res_ninit" #-darwin "__res_ninit") :int32
   (state :pointer))
 
 (defun get-name-servers ()
