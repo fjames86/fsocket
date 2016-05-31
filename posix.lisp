@@ -777,7 +777,8 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 (defcstruct res-state
   (retrans :int32)
   (retry :int32)
-  (options :uint64)
+  ;; Bugfix: u_long is 64 bits on x64 and 32 bits on x86 
+  (options #-(or x64 x86-64 amd64) :uint32 #+(or x64 x86-64 amd64) :uint64)
   (nscount :int32)
   (nsaddrs (:struct sockaddr-in) :count 3)) ;; MAXNS == 3
 
