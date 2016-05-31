@@ -260,6 +260,10 @@ ADDR ::= a SOCKADDR-IN or SOCKADDR-IN6 address structure."
 
 ;; --------------------------
 
+(defun translate-sockaddr-family (ptr)
+  #+freebsd(mem-ref ptr :uint8 1)
+  #-freebsd(mem-ref ptr :uint16 0))
+
 (defun translate-sockaddr-from-foreign (ptr)
   (let ((family 
          #+freebsd(mem-ref ptr :uint8 1)
@@ -343,10 +347,11 @@ to a list of symbols naming each pending event."
   unicast
 ;;  anycast
 ;;  multicast
-;;  dns
+  ;;  dns
+  netmask
+  broadcast
   status
   mtu)
-
 
 (defmacro with-udp-socket ((var &optional port) &body body)
   "Evaludate BODY with VAR bound to a UDP socket. 
