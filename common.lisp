@@ -343,6 +343,11 @@ to a list of symbols naming each pending event."
   unicast
 ;;  anycast
 ;;  multicast
-;;  dns
+  ;;  dns
+  netmask
+  broadcast
   status
   mtu)
+
+
+

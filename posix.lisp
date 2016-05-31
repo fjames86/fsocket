@@ -681,6 +681,16 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
                        (setf (adapter-address ad) mac
                              (adapter-type ad) :ethernet))))))
 
+	      ;; get the netmask
+	      (let ((np (foreign-slot-value ifa '(:struct ifaddrs) 'netmask)))
+		(unless (null-pointer-p np)
+		  (setf (adapter-netmask ad) (mem-aref np '(:struct sockaddr-in)))))
+	      
+	      ;; get the broadcast
+	      (let ((bp (foreign-slot-value ifa '(:struct ifaddrs) 'broadcast)))
+		(unless (null-pointer-p bp)
+		  (setf (adapter-broadcast ad) (mem-aref bp '(:struct sockaddr-in)))))	      	      
+	      
               ;; get the index
               (let ((index (%if-nametoindex (foreign-slot-value ifa '(:struct ifaddrs) 'name))))
                 (setf (adapter-index ad) index))
