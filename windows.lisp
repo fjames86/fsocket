@@ -968,12 +968,145 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
   (buffer :pointer)
   (count :pointer))
 
+;; struct _IP_ADDR_STRING {
+;;     struct _IP_ADDR_STRING* Next;
+;;     IP_ADDRESS_STRING IpAddress;
+;;     IP_MASK_STRING IpMask;
+;;     DWORD Context;
+;; } 
+(defcstruct ip-addr-string
+  (next :pointer)
+  (addr :uint8 :count 16)
+  (mask :uint8 :count 16)
+  (context :uint32))
+
+;; struct _IP_ADDR_STRING {
+;;     struct _IP_ADDR_STRING* Next;
+;;     IP_ADDRESS_STRING IpAddress;
+;;     IP_MASK_STRING IpMask;
+;;     DWORD Context;
+;; }
+(defcstruct ip-addr-string
+  (next :pointer)
+  (addr :uint8 :count 16)
+  (mask :uint8 :count 16)
+  (context :uint32))
+
+;; struct _IP_ADAPTER_INFO {
+;;     struct _IP_ADAPTER_INFO* Next;
+;;     DWORD ComboIndex;
+;;     char AdapterName[MAX_ADAPTER_NAME_LENGTH + 4];
+;;     char Description[MAX_ADAPTER_DESCRIPTION_LENGTH + 4];
+;;     UINT AddressLength;
+;;     BYTE Address[MAX_ADAPTER_ADDRESS_LENGTH];
+;;     DWORD Index;
+;;     UINT Type;
+;;     UINT DhcpEnabled;
+;;     PIP_ADDR_STRING CurrentIpAddress;
+;;     IP_ADDR_STRING IpAddressList;
+;;     IP_ADDR_STRING GatewayList;
+;;     IP_ADDR_STRING DhcpServer;
+;;     BOOL HaveWins;
+;;     IP_ADDR_STRING PrimaryWinsServer;
+;;     IP_ADDR_STRING SecondaryWinsServer;
+;;     time_t LeaseObtained;
+;;     time_t LeaseExpires;
+;; }
+(defcstruct ip-adapter-info
+  (next :pointer)
+  (combo-index :uint32)
+  (adapter-name :uint8 :count 260)
+  (description :uint8 :count 132)
+  (addrlen :uint32)
+  (addr :uint8 :count 8)
+  (index :uint32)
+  (type :uint32)
+  (dhcp-enabled :uint32)
+  (current-ip-address :pointer)
+  (ip-address-list (:struct ip-addr-string))
+  (gateway-list (:struct ip-addr-string))
+  (dhcp-server (:struct ip-addr-string))
+  (havewins :boolean)
+  (primary-wins-server (:struct ip-addr-string))
+  (secondary-wins-server (:struct ip-addr-string))
+  (lease-obtained :uint64)
+  (lease-expires :uint64))
+
+;; ULONG
+;; WINAPI
+;; GetAdaptersInfo(
+;;     _Out_writes_bytes_opt_(*SizePointer) PIP_ADAPTER_INFO AdapterInfo,
+;;     _Inout_                         PULONG           SizePointer
+;;     );
+(defcfun (%get-adapters-info "GetAdaptersInfo" :convention :stdcall) :uint32
+  (p :pointer)
+  (sizep :pointer))
+
+(defun get-adapters-info (buffer buffer-size)
+  (with-foreign-object (sizep :uint32)
+    (setf (mem-ref sizep :uint32) buffer-size)
+    (let ((sts (%get-adapters-info buffer sizep)))
+      (unless (zerop sts) (get-last-error)))
+    ;; decode the list of adapter info structs
+    (do ((ip buffer
+             (foreign-slot-value ip
+                                 '(:struct ip-adapter-info)
+                                 'next))
+         (rlist nil))
+        ((null-pointer-p ip) rlist)
+      ;; build up return structure, we just use a plist
+      (let ((r (list)))
+        ;; get adapter index 
+        (setf (getf r :index)
+              (foreign-slot-value ip
+                                  '(:struct ip-adapter-info)
+                                  'index))
+
+        ;; get netmask(s)
+        (do ((ipaddrs (foreign-slot-pointer ip
+                                           '(:struct ip-adapter-info)
+                                           'ip-address-list)
+                      (foreign-slot-value ipaddrs
+                                          '(:struct ip-addr-string)
+                                          'next)))
+            ((null-pointer-p ipaddrs) r)
+          (let ((ip-string
+                 (foreign-string-to-lisp (foreign-slot-pointer ipaddrs
+                                                               '(:struct ip-addr-string)
+                                                               'addr)))
+                (mask-string
+                 (foreign-string-to-lisp (foreign-slot-pointer ipaddrs
+                                                               '(:struct ip-addr-string)
+                                                               'mask))))
+            (unless (string= mask-string "")
+              ;; IpAddressList.IpMask.String
+              (let ((maskaddr (dotted-quad-to-inaddr mask-string))
+                    (ipaddr (dotted-quad-to-inaddr ip-string))
+                    (brdaddr (make-array 4 :initial-element 0)))
+                (push (sockaddr-in maskaddr 0)
+                      (getf r :netmask))
+                ;; compute broadcast address. brdaddr ::= ip | ~netmask
+                (dotimes (i 4)
+                  (setf (aref brdaddr i)
+                        (mod (+ 256 (logior (aref ipaddr i) (lognot (aref maskaddr i))))
+                             256)))
+                (push (sockaddr-in brdaddr 0) (getf r :broadcast))))))
+        
+        (push r rlist)))))
+
+      
+
+
+
+
+
 (defun list-adapters (&key (buffer-size 32768))
   "List the local machine physical network adapters. Returns a list of ADAPTER structures."
   (with-foreign-objects ((ptr :uint8 buffer-size)
                          (count :uint32))
     (setf (mem-aref count :uint32) buffer-size)
-    (let ((sts (%get-adapter-addresses 0 0 (null-pointer) ptr count)))
+    (let* ((adinfo (get-adapters-info ptr buffer-size)) ;; get netmasks etc 
+           (sts (%get-adapter-addresses 0 0 (null-pointer) ptr count)))
       (unless (zerop sts) (get-last-error))
       (do ((iface ptr (foreign-slot-value iface '(:struct ip-adapter-address) 'next))
            (ret nil))
@@ -1085,23 +1218,19 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
                     ;; (7 ;; IfOperStatusLowerLayerDown
                     ;;  :lower-layer-down)
                     ;; (otherwise sts))))
-                     
+
+          ;; Get netmasks out of the info
+          (let ((ainfo (find-if (lambda (info)
+                                  (= (getf info :index) (adapter-index ad)))
+                                adinfo)))
+            (when ainfo
+              (setf (adapter-netmask ad) (getf ainfo :netmask)
+                    (adapter-broadcast ad) (getf ainfo :broadcast))))
+          
           (push ad ret))))))
 
 
 ;; --------------- DNS -------------------
-
-;; struct _IP_ADDR_STRING {
-;;     struct _IP_ADDR_STRING* Next;
-;;     IP_ADDRESS_STRING IpAddress;
-;;     IP_MASK_STRING IpMask;
-;;     DWORD Context;
-;; } 
-(defcstruct ip-addr-string
-  (next :pointer)
-  (addr :uint8 :count 16)
-  (mask :uint8 :count 16)
-  (context :uint32))
 
 ;; (defconstant +max-host-name-len+ 128)
 ;; (defconstant +max-domain-name-len+ 128)
