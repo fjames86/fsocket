@@ -74,7 +74,9 @@
            #:adapter-unicast
            #:adapter-status
            #:adapter-mtu
-
+           #:adapter-netmask
+           #:adapter-broadcast
+           
            ;; conditions
            #:fsocket-error
            #:fsocket-short-buffer
