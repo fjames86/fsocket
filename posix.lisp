@@ -823,11 +823,13 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
   (nscount :int32)
   (nsaddrs (:struct sockaddr-in) :count 3)) ;; MAXNS == 3
 
-
-(define-foreign-library lresolv
-   (t (:default "libresolv")))
-
-(use-foreign-library lresolv)
+#+darwin
+(progn 
+  (define-foreign-library lresolv
+    (t (:default "libresolv")))
+  
+  (use-foreign-library lresolv)
+  )
 
 (defcfun (%res-ninit #+darwin "res_9_ninit" #-darwin "__res_ninit") :int32
   (state :pointer))
