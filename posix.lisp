@@ -824,12 +824,15 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
   (nsaddrs (:struct sockaddr-in) :count 3)) ;; MAXNS == 3
 
 
-;; (define-foreign-library lresolv
-;;   (t (:default "libresolv")))
+(define-foreign-library lresolv
+   (t (:default "libresolv")))
 
-;; (use-foreign-library lresolv)
+(use-foreign-library lresolv)
 
-(defcfun (%res-ninit #+darwin "res_ninit" #-darwin "__res_ninit") :int32
+(defcfun (%res-ninit #+darwin "res_9_ninit" #-darwin "__res_ninit") :int32
+  (state :pointer))
+
+(defcfun (%res-ndestroy #+darwin "res_9_ndestroy" #-darwin "__res_ndestroy") :void
   (state :pointer))
 
 (defun get-name-servers ()
@@ -841,9 +844,11 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
     
     (let ((sts (%res-ninit p)))
       (unless (zerop sts) (get-last-error))
-      (let ((ap (foreign-slot-pointer p '(:struct res-state) 'nsaddrs)))
-        (loop :for i :below (foreign-slot-value p '(:struct res-state) 'nscount)
-           :collect (mem-aref ap '(:struct sockaddr-in) i))))))
+      (unwind-protect 
+	   (let ((ap (foreign-slot-pointer p '(:struct res-state) 'nsaddrs)))
+	     (loop :for i :below (foreign-slot-value p '(:struct res-state) 'nscount)
+		:collect (mem-aref ap '(:struct sockaddr-in) i)))
+	(%res-ndestroy p)))))
 
 
 ;; int gethostname(char *name, size_t len);
