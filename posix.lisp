@@ -834,7 +834,8 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 (defcfun (%res-ninit #+darwin "res_9_ninit" #-darwin "__res_ninit") :int32
   (state :pointer))
 
-(defcfun (%res-ndestroy #+darwin "res_9_ndestroy" #-darwin "__res_ndestroy") :void
+;; Bugfix: Linux doesn't have res_ndestroy so we just call res_nclose instead 
+(defcfun (%res-ndestroy #+darwin "res_9_ndestroy" #+freebsd "__res_ndestroy" #+linux "__res_nclose") :void
   (state :pointer))
 
 (defun get-name-servers ()
