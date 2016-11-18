@@ -218,24 +218,35 @@ HOW ::= :SEND to stop sending, :RECEIVE to stop receiving, :BOTH to stop both."
   (len size-t)
   (flags :int32))
 
-(declaim (ftype (function (t (vector (unsigned-byte 8)) &key (:start integer) (:end (or null integer)))
+(declaim (ftype (function (t (or (vector (unsigned-byte 8)) foreign-pointer)
+			     &key (:start integer) (:end (or null integer)))
 			  integer)))
 (defun socket-send (fd buffer &key (start 0) end)
   "Send a buffer on the connected socket.
 SOCK ::= connected socket.
-BUFFER ::= octet array.
+BUFFER ::= octet vector or foreign pointer.
 START ::= start index of buffer.
 END ::= end index of buffer.
 
 Returns the number of bytes actually sent, which can be less than the requested length."
-  (let ((count (- (or end (length buffer)) start)))
-    (with-foreign-object (p :uint8 count)
-      (dotimes (i count)
-        (setf (mem-aref p :uint8 i) (aref buffer (+ start i))))
-      (let ((sts (%send fd p count 0)))
-        (if (= sts +socket-error+)
-            (get-last-error)
-            sts)))))
+  (declare (type (or (vector (unsigned-byte 8)) foreign-pointer) buffer))
+  (etypecase buffer
+    ((vector (unsigned-byte 8))
+     (let ((count (- (or end (length buffer)) start)))
+       (with-foreign-object (p :uint8 count)
+	 (dotimes (i count)
+	   (setf (mem-aref p :uint8 i) (aref buffer (+ start i))))
+	 (let ((sts (%send fd p count 0)))
+	   (if (= sts +socket-error+)
+	       (get-last-error)
+	       sts)))))
+    (foreign-pointer
+     (let ((count (- (or end (error "Must provide end when passing pointer"))
+		     start)))
+       (let ((sts (%send fd (inc-pointer buffer start) count 0)))
+	 (if (= sts +socket-error+)
+	     (get-last-error)
+	     sts))))))
 
 ;; ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
 ;;                const struct sockaddr *dest_addr, socklen_t addrlen);
@@ -247,43 +258,67 @@ Returns the number of bytes actually sent, which can be less than the requested 
   (addr :pointer)
   (alen :int32))
 
-(declaim (ftype (function (t (vector (unsigned-byte 8)) (or sockaddr-in sockaddr-in6) &key (:start integer) (:end (or null integer)))
+(declaim (ftype (function (t (or (vector (unsigned-byte 8)) foreign-pointer) (or sockaddr-in sockaddr-in6) &key (:start integer) (:end (or null integer)))
 			  integer)))
 (defun socket-sendto (fd buffer addr &key (start 0) end)
   "Send data to the address on the socket.
-SOCK ::= socket.
-BUFFER ::= octet array
+FD ::= socket.
+BUFFER ::= octet vector or foreign pointer.
 ADDR ::= destination address, either a SOCKADDR-IN or SOCKADDR-IN6 structure.
-START ::= buffer start index
+START ::= buffer start index.
 END ::= buffer end index.
 
 Returns the number of octets actually sent, which can be less than the number requested."
-  (let ((count (- (or end (length buffer)) start))
-        (alen 0))
-    (with-foreign-objects ((p :uint8 count)
-                           (a :uint8 +sockaddr-storage+))
-      (dotimes (i count)
-        (setf (mem-aref p :uint8 i)
-              (aref buffer (+ start i))))
-      (etypecase addr
-        (sockaddr-in
-         (setf (mem-aref a '(:struct sockaddr-in)) addr
-               alen (foreign-type-size '(:struct sockaddr-in))))
-        (sockaddr-in6
-         (setf (mem-aref a '(:struct sockaddr-in6)) addr
-               alen (foreign-type-size '(:struct sockaddr-in6))))
-        (string 
-         (setf (mem-aref a '(:struct sockaddr-un)) addr
-               alen (foreign-type-size '(:struct sockaddr-un)))))
-      (let ((sts (%sendto fd
-                          p
-                          count
-                          0
-                          a
-                          alen)))
-        (if (= sts +socket-error+)
-            (get-last-error)
-            sts)))))
+  (declare (type (or (vector (unsigned-byte 8)) foreign-pointer) buffer))
+  (etypecase buffer
+    ((vector (unsigned-byte 8))
+     (let ((count (- (or end (length buffer)) start))
+	   (alen 0))
+       (with-foreign-objects ((p :uint8 count)
+			      (a :uint8 +sockaddr-storage+))
+	 (dotimes (i count)
+	   (setf (mem-aref p :uint8 i)
+		 (aref buffer (+ start i))))
+	 (etypecase addr
+	   (sockaddr-in
+	    (setf (mem-aref a '(:struct sockaddr-in)) addr
+		  alen (foreign-type-size '(:struct sockaddr-in))))
+	   (sockaddr-in6
+	    (setf (mem-aref a '(:struct sockaddr-in6)) addr
+		  alen (foreign-type-size '(:struct sockaddr-in6))))
+	   (string 
+	    (setf (mem-aref a '(:struct sockaddr-un)) addr
+		  alen (foreign-type-size '(:struct sockaddr-un)))))
+	 (let ((sts (%sendto fd
+			     p
+			     count
+			     0
+			     a
+			     alen)))
+	   (if (= sts +socket-error+)
+	       (get-last-error)
+	       sts)))))
+    (foreign-pointer
+     (let ((alen 0)
+	   (count (- (or end (error "Must provide end when passing pointer"))
+		     start)))
+       (with-foreign-object (a :uint8 +sockaddr-storage+)
+	 (etypecase addr
+	   (sockaddr-in (setf (mem-aref a '(:struct sockaddr-in)) addr
+			      alen (foreign-type-size '(:struct sockaddr-in))))
+	   (sockaddr-in6
+	    (setf (mem-aref a '(:struct sockaddr-in6)) addr
+		  alen (foreign-type-size '(:struct sockaddr-in6)))))
+	 (let ((sts (%sendto fd 
+			     (inc-pointer buffer start)
+			     count
+			     0
+			     a
+			     alen)))
+	   (if (= sts +socket-error+)
+	       (get-last-error)
+	       sts)))))))
+
 
 
 ;; ssize_t recv(int sockfd, void *buf, size_t len, int flags);
@@ -293,27 +328,43 @@ Returns the number of octets actually sent, which can be less than the number re
   (len size-t)
   (flags :int32))
 
-(declaim (ftype (function (t (vector (unsigned-byte 8)) &key (:start integer) (:end (or null integer)))
+(declaim (ftype (function (t (or (vector (unsigned-byte 8)) foreign-pointer)
+			     &key (:start integer) (:end (or null integer)))
 			  integer)))
 (defun socket-recv (fd buffer &key (start 0) end)
   "Receive data from the socket.
-SOCK ::= socket.
-BUFFER ::= octet array to receive data into.
-START ::= buffer start idnex.
+FD ::= socket.
+BUFFER ::= octet vector or foreign pointer that receives data.
+START ::= buffer start index.
 END ::= buffer end index.
 
 Retuns the number of bytes actually received, which can be less than the number requested."
-  (let ((count (- (or end (length buffer)) start)))
-    (with-foreign-object (p :uint8 count)
-      (let ((sts (%recv fd p count 0)))
-        (cond
-          ((= sts +socket-error+)
-           (get-last-error))
-          (t
-           (dotimes (i sts)
-             (setf (aref buffer (+ start i))
-                   (mem-aref p :uint8 i)))
-           sts))))))
+  (declare (type (or (vector (unsigned-byte 8)) foreign-pointer) buffer))
+  (etypecase buffer
+    ((vector (unsigned-byte 8))
+     (let ((count (- (or end (length buffer)) start)))
+       (with-foreign-object (p :uint8 count)
+	 (let ((sts (%recv fd p count 0)))
+	   (cond
+	     ((= sts +socket-error+)
+	      (get-last-error))
+	     (t
+	      (dotimes (i sts)
+		(setf (aref buffer (+ start i))
+		      (mem-aref p :uint8 i)))
+	      sts))))))
+    (foreign-pointer
+     (let ((count (- (or end (error "Must provide end when passing pointer")) start)))
+       (let ((sts (%recv fd 
+			 (inc-pointer buffer start)
+			 count
+			 0)))
+	 (cond
+	   ((= sts +socket-error+)
+	    (get-last-error))
+	   (t
+	    sts)))))))
+
 
 ;;ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
 ;;                 struct sockaddr *src_addr, socklen_t *addrlen);
@@ -325,39 +376,61 @@ Retuns the number of bytes actually received, which can be less than the number 
   (addr :pointer)
   (alen :pointer))
 
-(declaim (ftype (function (t (vector (unsigned-byte 8)) &key (:start integer) (:end (or null integer)))
+(declaim (ftype (function (t (or (vector (unsigned-byte 8)) foreign-pointer)
+			     &key (:start integer) (:end (or null integer)))
 			  (values integer (or sockaddr-in sockaddr-in6)))))
 (defun socket-recvfrom (fd buffer &key (start 0) end)
   "Receive data from the socket.
-SOCK ::= socket.
-BUFFER ::= octet array
-START ::= start index
+FD ::= socket.
+BUFFER ::= octet vector or foreign pointer.
+START ::= start index.
 END ::= end index.
 
 Returns (values count addr) where
 COUNT ::= number of octets actually received, which can be less tha nthe number requested.
 ADDR ::= remote address from which the data was received.
 "
-  (let ((count (- (or end (length buffer)) start)))
-    (with-foreign-objects ((p :uint8 count)
-                           (a :uint8 +sockaddr-storage+)
-                           (alen :uint32))
-      (setf (mem-aref alen :uint32) +sockaddr-storage+)
-      (let ((sts (%recvfrom fd
-                            p
-                            count
-                            0
-                            a
-                            alen)))
-        (cond
-          ((= sts +socket-error+)
-           (get-last-error))
-          (t
-           (dotimes (i sts)
-             (setf (aref buffer (+ start i)) (mem-ref p :uint8 i)))
-           (let ((addr (translate-sockaddr-from-foreign a)))
-             (values sts addr))))))))
+  (declare (type (or (vector (unsigned-byte 8)) foreign-pointer) buffer))
+  (etypecase buffer
+    ((vector (unsigned-byte 8))
+     (let ((count (- (or end (length buffer)) start)))
+       (with-foreign-objects ((p :uint8 count)
+			      (a :uint8 +sockaddr-storage+)
+			      (alen :uint32))
+	 (setf (mem-aref alen :uint32) +sockaddr-storage+)
+	 (let ((sts (%recvfrom fd
+			       p
+			       count
+			       0
+			       a
+			       alen)))
+	   (cond
+	     ((= sts +socket-error+)
+	      (get-last-error))
+	     (t
+	      (dotimes (i sts)
+		(setf (aref buffer (+ start i)) (mem-ref p :uint8 i)))
+	      (let ((addr (translate-sockaddr-from-foreign a)))
+		(values sts addr))))))))
+    (foreign-pointer
+     (let ((count (- (or end (error "Must provide end when passing pointer"))
+		     start)))
+       (with-foreign-objects ((a :uint8 +sockaddr-storage+)
+			      (alen :uint32))
+	 (setf (mem-aref alen :uint32) +sockaddr-storage+)
+	 (let ((sts (%recvfrom fd 
+			       (inc-pointer buffer start)
+			       count
+			       0
+			       a
+			       alen)))
+	   (cond
+	     ((= sts +socket-error+)
+	      (get-last-error))
+	     (t
+	      (values sts (translate-sockaddr-from-foreign a))))))))))
 
+    
 ;; int getsockname(int socket, struct sockaddr *restrict address, socklen_t *restrict address_len);
 (defcfun (%getsockname "getsockname") :int32
   (fd :int32)

@@ -49,6 +49,8 @@ There are two types of I/O: send/recv for connected sockets and sendto/recvfrom 
   (close-socket fd))
 ```
 
+The 4 I/O functions also accept a foreign pointer instead of an octet vector as the `buffer` parameter. This allows callers to avoid the copy to and from foreign memory. This is somewhat more awkward to use but for certain applications could prove useful.
+
 ### 2.3 Polling
 Provides an API based on POSIX poll(). On systems where this is available (i.e. everywhere except Windows)
 it calls directly to poll(). On Windows it calls WSAEnumNetworkEvents() and iterates over each socket. The Windows
