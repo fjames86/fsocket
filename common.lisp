@@ -261,13 +261,13 @@ ADDR ::= a SOCKADDR-IN or SOCKADDR-IN6 address structure."
 ;; --------------------------
 
 (defun translate-sockaddr-family (ptr)
-  #+freebsd(mem-ref ptr :uint8 1)
-  #-freebsd(mem-ref ptr :uint16 0))
+  #+(or freebsd darwin)(mem-ref ptr :uint8 1)
+  #-(or freebsd darwin)(mem-ref ptr :uint16 0))
 
 (defun translate-sockaddr-from-foreign (ptr)
   (let ((family 
-         #+freebsd(mem-ref ptr :uint8 1)
-         #-freebsd(mem-ref ptr :uint16 0)))
+         #+(or freebsd darwin)(mem-ref ptr :uint8 1)
+         #-(or freebsd darwin)(mem-ref ptr :uint16 0)))
     (cond
       ((= family +af-inet+)
        (mem-ref ptr '(:struct sockaddr-in)))
