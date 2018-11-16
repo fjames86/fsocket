@@ -384,10 +384,11 @@ ADDR ::= address to connect to."
 	    ,@body)
        (close-socket ,var))))
 
-(defmacro with-socket ((var) &body body)
+(defmacro with-socket ((var &optional type family) &body body)
   "Execute the body ensuring the socket bound to VAR is closed."
-  `(unwind-protect (progn ,@body)
-     (close-socket ,var)))
+  `(let ((,var (open-socket :family ,(or family :inet) :type ,(or type :stream))))
+     (unwind-protect (progn ,@body)
+       (close-socket ,var))))
 
   
 (defmacro with-poll ((var) &body body)
