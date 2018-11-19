@@ -81,6 +81,26 @@ VALUE ::= value to set."))
 (defmethod socket-option (sock (level (eql :socket)) (option (eql :error)))
   (get-socket-option-int32 sock +sol-socket+ +so-error+))
 
+
+#-(or win32 windows)
+(defcstruct timeval
+  (tv-sec #+(or amd64 x86-64 x64):uint64
+	  #-(or amd64 x86-64 x64):uint32)
+  (tv-usec :uint64))
+
+(defmethod socket-option (sock (level (eql :socket)) (option (eql :rcvtimeo)))
+  #+(or win32 windows)
+  (get-socket-option-int32 sock +sol-socket +so-rcvtimeo+)
+  #-(or win32 windows)
+  (with-foreign-objects ((tv '(:struct timeval))
+			 (len :uint32))
+    (setf (mem-aref len :uint32) (foreign-type-size '(:struct timeval)))
+    (let ((sts (%getsockopt sock +sol-socket+ +so-rcvtimeo+ tv len)))
+      (when (= sts +socket-error+) (get-last-error)))
+
+    (+ (* (foreign-slot-value tv '(:struct timeval) 'tv-sec) 1000)
+       (truncate (foreign-slot-value tv '(:struct timeval) 'tv-usec) 1000))))
+
 ;; ------------------------------------------------
 ;; setting socket options
 
@@ -120,6 +140,15 @@ VALUE ::= value to set."))
           (get-last-error)
           nil))))
 
+(defun set-socket-option-pointer (sock level option pointer len)
+  (let ((sts (%setsockopt sock 
+                          level
+                          option
+                          pointer 
+                          len)))
+    (if (= sts +socket-error+)
+        (get-last-error *errno*)
+	nil)))
 
 (defmethod (setf socket-option) (value sock (level (eql :socket)) (option (eql :acceptconn)))
   (set-socket-option-boolean sock +sol-socket+ +so-acceptconn+ value))
@@ -140,7 +169,12 @@ VALUE ::= value to set."))
   (set-socket-option-int32 sock +sol-socket+ +so-sndtimeo+ value))
 
 (defmethod (setf socket-option) (value sock (level (eql :socket)) (option (eql :rcvtimeo)))
-  (set-socket-option-int32 sock +sol-socket+ +so-rcvtimeo+ value))
+  #+(or win32 windows)(set-socket-option-int32 sock +sol-socket+ +so-rcvtimeo+ value)
+  #-(or win32 windows)
+  (with-foreign-object (tv '(:struct timeval))
+    (setf (foreign-slot-value tv '(:struct timeval) 'tv-sec) (truncate value 1000)
+	  (foreign-slot-value tv '(:struct timeval) 'tv-usec) (mod (* value 1000) 1000000))
+    (set-socket-option-pointer sock +sol-socket+ +so-rcvtimeo+ tv (foreign-type-size '(:struct timeval)))))
 
 
 ;; struct group_req {
