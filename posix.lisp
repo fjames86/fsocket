@@ -944,3 +944,17 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
       (%get-domain-name p 256)
       (let ((dn (foreign-string-to-lisp p)))
 	(values hn dn)))))
+
+
+;; (defcfun (%eventfd "eventfd") :int32
+;;   (initval :int32)
+;;   (flags :int32))
+
+;; (defun eventfd (&optional (nonblock-p t) initval)
+;;   (%eventfd (or initval 0)
+;; 	    (let ((f 0))
+;; 	      (when nonblock-p (setf f (logior f 4)))
+;; 	      f)))
+
+
+    
