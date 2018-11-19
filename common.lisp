@@ -142,6 +142,11 @@ Returns a new SOCKADDR-IN structure."
 			    ((null inaddr) #(0 0 0 0))
 			    ((stringp inaddr) (dotted-quad-to-inaddr inaddr))
 			    ((vectorp inaddr) inaddr)
+			    ((integerp inaddr)
+			     (vector (logand (ash inaddr -24) #xff)
+				     (logand (ash inaddr -16) #xff)
+				     (logand (ash inaddr -8) #xff)
+				     (logand inaddr #xff)))
 			    (t (error "Invalid inaddr value ~S" inaddr)))
 		    :port (or port 0)))
 
