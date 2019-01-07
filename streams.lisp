@@ -72,16 +72,16 @@ call read-sequence into a buffer and wrap that in a stream."
 (defmethod trivial-gray-streams:stream-read-sequence ((stream tcp-stream) seq start end &key)
   "Returns the index of last byte read."
   (declare (fixnum start end))
-  (+ start
-     (socket-recv (tcp-stream-fd stream) seq
-		  :start start :end end)))
+  (let ((n (socket-recv (tcp-stream-fd stream) seq :start start :end end)))
+    (when (zerop n) (error "Connection gracefull closed"))
+    (+ start n)))
         
 (defmethod trivial-gray-streams:stream-write-sequence ((stream tcp-stream) seq start end &key)
-  "Returns the index of last byte written."
   (declare (fixnum start end))
-  (+ start
-     (socket-send (tcp-stream-fd stream) seq
-		  :start start :end end)))
+    (do ((offset start))
+	((= offset end) seq)
+      (let ((n (socket-send (tcp-stream-fd stream) seq :start offset :end end)))
+	(incf offset n))))
 
 
 (defmethod trivial-gray-streams:stream-force-output ((stream tcp-stream))
