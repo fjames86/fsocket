@@ -15,6 +15,6 @@
    #+(or win32 windows)(:file "windows")
    #-(or win32 windows)(:file "posix")
    (:file "options")
-   #+nil(:file "streams"))
-  :depends-on (:cffi)) ;;  :trivial-gray-streams))
+   (:file "streams"))
+  :depends-on (:cffi :trivial-gray-streams))
 

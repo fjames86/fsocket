@@ -90,3 +90,6 @@ call read-sequence into a buffer and wrap that in a stream."
 (defmethod trivial-gray-streams:stream-finish-output ((stream tcp-stream))
   nil)
 
+(defmethod close ((stream tcp-stream) &key abort)
+  (declare (ignore abort))
+  (close-socket (tcp-stream-fd stream)))

@@ -97,7 +97,7 @@
 	   #:sockaddr-string
 	   #:string-sockaddr
 	   
-	   ;; #:make-tcp-stream
+	   #:make-tcp-stream
 	   
 	   #:open-udp-socket
 	   #:open-tcp-socket
