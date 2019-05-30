@@ -460,6 +460,7 @@ Retuns the number of bytes actually received, which can be less than the number 
 	 (let ((sts (%recv sock p count 0)))
 	   (cond
 	     ((= sts +socket-error+) (get-last-error))
+	     ((= sts 0) 0)
 	     (t
 	      (dotimes (i sts)
 		(setf (aref buffer (+ start i))

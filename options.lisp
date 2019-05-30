@@ -90,7 +90,7 @@ VALUE ::= value to set."))
 
 (defmethod socket-option (sock (level (eql :socket)) (option (eql :rcvtimeo)))
   #+(or win32 windows)
-  (get-socket-option-int32 sock +sol-socket +so-rcvtimeo+)
+  (get-socket-option-int32 sock +sol-socket+ +so-rcvtimeo+)
   #-(or win32 windows)
   (with-foreign-objects ((tv '(:struct timeval))
 			 (len :uint32))
@@ -147,7 +147,7 @@ VALUE ::= value to set."))
                           pointer 
                           len)))
     (if (= sts +socket-error+)
-        (get-last-error *errno*)
+        (get-last-error)
 	nil)))
 
 (defmethod (setf socket-option) (value sock (level (eql :socket)) (option (eql :acceptconn)))
