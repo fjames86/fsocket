@@ -13,7 +13,8 @@
            #:socket-accept
            #:socket-shutdown
            #:socket-name
-           
+           #:socket-peer
+	   
            ;; socket I/O
            #:socket-send
            #:socket-sendto
@@ -96,7 +97,8 @@
 
 	   #:sockaddr-string
 	   #:string-sockaddr
-	   
+
+	   #:tcp-stream 
 	   #:make-tcp-stream
 	   
 	   #:open-udp-socket

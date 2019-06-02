@@ -448,6 +448,21 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
         (get-last-error))
       (translate-sockaddr-from-foreign addr))))
 
+;;int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+(defcfun (%getpeername "getpeername") :int32
+  (fd :int32)
+  (addr :pointer)
+  (len :pointer))
+(defun socket-peer (fd)
+  (with-foreign-objects ((addr :uint32 +sockaddr-storage+)
+                         (len :uint32))
+    (setf (mem-aref len :uint32) +sockaddr-storage+)
+    (let ((sts (%getpeername fd addr len)))
+      (when (= sts +socket-error+)
+        (get-last-error))
+      (translate-sockaddr-from-foreign addr))))
+  
+
 ;; int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
 (defcfun (%getsockopt "getsockopt") :int32
   (fd :int32)
