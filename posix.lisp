@@ -2,7 +2,7 @@
 ;;;; This code is licensed under the MIT license.
 
 ;;; This file defines all the stuff for posix platforms (Linux,FreeBSD, maybe OSX one day)
-
+;;(asdf:make "fsocket")
 (in-package #:fsocket)
 
 ;; --------------------------------------
@@ -41,24 +41,31 @@
 
 (defun open-socket (&key (family :inet) (type :datagram) protocol)
     "Open a socket. Call CLOSE-SOCKET to free resources.
-FAMILY ::= address family integer. Either :INET, :INET6 or :UNIX.
-TYPE ::= socket type name, defaults to SOCK_DGRAM. Can be :datagram or :stream.
+FAMILY ::= address family integer. Either :INET, :INET6, :UNIX or :CAN.
+TYPE ::= socket type name, defaults to SOCK_DGRAM. Can be :datagram, :stream or :raw.
 PROTOCOL ::= socket protocol integer. Usually doesn't need to be specified.
+If family :can, use type :raw with protocol +can-raw+.
 
 Returns the socket file descriptor."
     (declare (type symbol family type)
              (type (or null integer) protocol))    
     (let ((fd (%socket (ecase family
-                         (:inet +af-inet+)
+                        (:inet +af-inet+)
                          (:inet6 +af-inet6+)
-                         (:unix +af-unix+))
-                     (ecase type
-                       (:stream 1)
-                       (:datagram 2))
-                     (or protocol 0))))
+                         (:unix +af-unix+)
+			 (:can +pf-can+))
+		       
+		       (ecase type
+			 (:raw +sock-raw+)
+			 (:stream +sock-stream+)
+			 (:datagram +sock-dgram+))
+
+		       (or protocol 0))))
     (if (invalid-socket-p fd)
         (get-last-error)
         fd)))
+
+;; (open-socket :family :can :type :raw :protocol +can-raw+)
 
 ;; int close(int fd);
 (defcfun (%close "close") :int

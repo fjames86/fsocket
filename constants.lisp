@@ -18,8 +18,12 @@
 #+freebsd(defconstant +af-unix+ 1)
 #+darwin(defconstant +af-unix+ 1)
 
+(defconstant +can-raw+ 1)
+(defconstant +pf-can+ 29)
+
 (defconstant +sock-stream+ 1)
 (defconstant +sock-dgram+ 2)
+(defconstant +sock-raw+ 3)
 
 (defconstant +ipproto-ip+ 0)
 (defconstant +ipproto-ip6+ 41)
