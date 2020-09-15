@@ -65,8 +65,6 @@ Returns the socket file descriptor."
         (get-last-error)
         fd)))
 
-;; (open-socket :family :can :type :raw :protocol +can-raw+)
-
 ;; int close(int fd);
 (defcfun (%close "close") :int
   (fd :int32))
@@ -85,27 +83,48 @@ Returns the socket file descriptor."
   (len :int32))
 
 (defun socket-bind (fd addr)
-  "Bind the socket to the local address.
+  "Bind the socket to the local address/interface.
 FD ::= socket file descriptor.
-ADDR ::= local address. Can be SOCKADDR-IN, SOCKADDR-IN6 or string."
-  (with-foreign-object (p :uint8 +sockaddr-storage+)
-    (let ((len +sockaddr-storage+))
-      (etypecase addr
-        (sockaddr-in
-         (setf (mem-aref p '(:struct sockaddr-in)) addr
-               len (foreign-type-size '(:struct sockaddr-in))))
-        (sockaddr-in6
-         (setf (mem-aref p '(:struct sockaddr-in6)) addr
-               len (foreign-type-size '(:struct sockaddr-in6))))
-        (string
-         (setf (mem-aref p '(:struct sockaddr-un)) addr
-               len (foreign-type-size '(:struct sockaddr-un)))))
-      (let ((sts (%bind fd p len)))
-        (if (= sts +socket-error+)
-            (get-last-error)
-            nil)))))
+ADDR ::= local address or can interface. Can be SOCKADDR-IN, SOCKADDR-IN6 or string for internet sockets; must be of type CAN-INTERFACE for can sockets"
+  (let ((sock-addr-pointer NIL)
+	(sock-addr-len NIL))
+    (if (can-interface-p addr)
+	;; bind can socket
+	(with-foreign-object (ifr '(:struct ifreq))
+	  (let* ((n (can-interface-name addr))
+		(n-size (length n))) 
+	  (lisp-string-to-foreign n (foreign-slot-value ifr '(:struct ifreq) 'name) (1+ n-size))
+	  (%ioctl fd +siocgifindex+ ifr)
+	  (with-foreign-object (sockaddr '(:struct sockaddr_can))
+	    (setf (foreign-slot-value sockaddr '(:struct sockaddr_can) 'can_family) +pf_can+)
+	    (let* ((ifrdata (foreign-slot-value ifr '(:struct ifreq) 'data))
+		   (index (foreign-slot-value ifrdata '(:union ifreq-data) 'ifindex)))      
+	      (setf (foreign-slot-value sockaddr '(:struct sockaddr_can) 'can_ifindex) index))
+	    (setq sock-addr-pointer sockaddr
+		  sock-addr-len (foreign-type-size '(:struct sockaddr-in))))))
+	;; bind internet socket
+	(with-foreign-object (p :uint8 +sockaddr-storage+)
+	  (let ((len +sockaddr-storage+))
+	    (etypecase addr
+	      (sockaddr-in
+	       (setf (mem-aref p '(:struct sockaddr-in)) addr
+		     len (foreign-type-size '(:struct sockaddr-in))))
+	      (sockaddr-in6
+	       (setf (mem-aref p '(:struct sockaddr-in6)) addr
+		     len (foreign-type-size '(:struct sockaddr-in6))))
+	      (string
+	       (setf (mem-aref p '(:struct sockaddr-un)) addr
+		     len (foreign-type-size '(:struct sockaddr-un)))))
+	    (setq sock-addr-pointer p
+		  sock-addr-len len))))	 
 
-;; int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+    (let ((sts (%bind fd sock-addr-pointer sock-addr-len)))
+      (if (= sts +socket-error+)
+	  (get-last-error)
+	  nil))))
+
+(socket-bind (open-socket :family :can :type :raw :protocol +can-raw+) (make-can-interface :name "vcan0")) 
+ ;; int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 (defcfun (%connect "connect") :int32
   (fd :int32)
   (addr :pointer)
@@ -687,15 +706,66 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 ;;         __caddr_t ifru_data;
 ;;       } ifr_ifru;
 ;;   };
+
+;; (defcunion ifreq-data
+;;   (addr (:struct sockaddr-in))
+;;   (flags :uint16)
+;;   (ivalue :int32)
+;;   (mtu :int32))
+
+(defcstruct ifmap
+  (mem_start :ulong)
+  (mem_end :ulong)
+  (base_addr :ushort)
+  (irq :uchar)
+  (dma :uchar)
+  (port :uchar))
+
 (defcunion ifreq-data
   (addr (:struct sockaddr-in))
+  (dst_addr (:struct sockaddr-in))
+  (broadaddr (:struct sockaddr-in))
+  (netmask (:struct sockaddr-in))
+  (hwaddr (:struct sockaddr-in))
   (flags :uint16)
-  (ivalue :int32)
-  (mtu :int32))
+  (ifindex :int32)
+  (metric :int32)
+  (mtu :int32)
+  (map (:struct ifmap))
+  (slave :char)
+  (newname :char)
+  (data :pointer))
 
 (defcstruct ifreq
   (name :uint8 :count 16)
   (data (:union ifreq-data)))
+
+(defcstruct timeval
+  (tv_sec :int64)
+  (tv_usec :int64))
+
+(defctype canid_t :uint32) 
+(defctype sa_family_t :uint16)
+
+(defcstruct can_frame
+  (can_id canid_t)
+  (can_dlc :uint8)
+  (pad :uint8)
+  (res0 :uint8)
+  (res1 :uint8)
+  (data :pointer))
+
+(defcstruct TP
+  (rx_id canid_t)
+  (tx_id canid_t))
+  
+(defcunion can_address
+  (tp (:struct TP)))
+  
+(defcstruct sockaddr_can
+  (can_family sa_family_t)
+  (can_ifindex :int)
+  (can_addr (:union can_address)))
 
 ;; unsigned int if_nametoindex(const char *ifname);
 (defcfun (%if-nametoindex "if_nametoindex") :uint32
