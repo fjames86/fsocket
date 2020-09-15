@@ -35,7 +35,7 @@
 
 ;; int socket(int socket_family, int socket_type, int protocol);
 (defcfun (%socket "socket") :int32
-  (family :int32)
+v  (family :int32)
   (type :int32)
   (prot :int32))
 
@@ -95,11 +95,11 @@ ADDR ::= local address or can interface. Can be SOCKADDR-IN, SOCKADDR-IN6 or str
 		(n-size (length n))) 
 	  (lisp-string-to-foreign n (foreign-slot-value ifr '(:struct ifreq) 'name) (1+ n-size))
 	  (%ioctl fd +siocgifindex+ ifr)
-	  (with-foreign-object (sockaddr '(:struct sockaddr_can))
-	    (setf (foreign-slot-value sockaddr '(:struct sockaddr_can) 'can_family) +pf_can+)
+	  (with-foreign-object (sockaddr '(:struct sockaddr-can))
+	    (setf (foreign-slot-value sockaddr '(:struct sockaddr-can) 'can_family) +pf_can+)
 	    (let* ((ifrdata (foreign-slot-value ifr '(:struct ifreq) 'data))
 		   (index (foreign-slot-value ifrdata '(:union ifreq-data) 'ifindex)))      
-	      (setf (foreign-slot-value sockaddr '(:struct sockaddr_can) 'can_ifindex) index))
+	      (setf (foreign-slot-value sockaddr '(:struct sockaddr-can) 'can_ifindex) index))
 	    (setq sock-addr-pointer sockaddr
 		  sock-addr-len (foreign-type-size '(:struct sockaddr-in))))))
 	;; bind internet socket
@@ -123,7 +123,6 @@ ADDR ::= local address or can interface. Can be SOCKADDR-IN, SOCKADDR-IN6 or str
 	  (get-last-error)
 	  nil))))
 
-(socket-bind (open-socket :family :can :type :raw :protocol +can-raw+) (make-can-interface :name "vcan0")) 
  ;; int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 (defcfun (%connect "connect") :int32
   (fd :int32)
@@ -747,7 +746,7 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 (defctype canid_t :uint32) 
 (defctype sa_family_t :uint16)
 
-(defcstruct can_frame
+(defcstruct can-frame
   (can_id canid_t)
   (can_dlc :uint8)
   (pad :uint8)
@@ -762,7 +761,7 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 (defcunion can_address
   (tp (:struct TP)))
   
-(defcstruct sockaddr_can
+(defcstruct sockaddr-can
   (can_family sa_family_t)
   (can_ifindex :int)
   (can_addr (:union can_address)))
