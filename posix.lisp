@@ -249,12 +249,12 @@ HOW ::= :SEND to stop sending, :RECEIVE to stop receiving, :BOTH to stop both."
 (defun socket-send (fd buffer &key (start 0) end)
   "Send a buffer on the connected socket.
 SOCK ::= connected socket.
-BUFFER ::= octet vector or foreign pointer.
+BUFFER ::= octet vector, foreign pointer or can-frame.
 START ::= start index of buffer.
 END ::= end index of buffer.
 
 Returns the number of bytes actually sent, which can be less than the requested length."
-  (declare (type (or (vector (unsigned-byte 8)) foreign-pointer) buffer))
+  (declare (type (or (vector (unsigned-byte 8)) foreign-pointer can-packet) buffer))
   (etypecase buffer
     ((vector (unsigned-byte 8))
      (let ((count (- (or end (length buffer)) start)))
@@ -271,7 +271,17 @@ Returns the number of bytes actually sent, which can be less than the requested 
        (let ((sts (%send fd (inc-pointer buffer start) count 0)))
 	 (if (= sts +socket-error+)
 	     (get-last-error)
-	     sts))))))
+	     sts))))
+    (can-packet
+     (let* ((id (can-packet-id buffer))
+	    (payload (can-packet-data buffer))
+	    (payload-size (length payload)))
+       (with-foreign-object (frame '(:struct can_frame))  
+	 (setf (foreign-slot-value frame '(:struct can_frame) 'can_id) id)
+	 (setf (foreign-slot-value frame '(:struct can_frame) 'can_dlc) payload-size)
+	 (let ((ptr (foreign-slot-pointer frame '(:struct can_frame) 'data)))	       
+	   (lisp-array-to-foreign payload ptr `(:array :uint8 ,payload-size)))
+	 (%write fd frame (foreign-type-size '(:struct can_frame))))))))
 
 ;; ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
 ;;                const struct sockaddr *dest_addr, socklen_t addrlen);
