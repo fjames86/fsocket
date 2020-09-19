@@ -281,8 +281,11 @@ Returns the number of bytes actually sent, which can be less than the requested 
 	 (setf (foreign-slot-value frame '(:struct can_frame) 'can_dlc) payload-size)
 	 (let ((ptr (foreign-slot-pointer frame '(:struct can_frame) 'data)))	       
 	   (lisp-array-to-foreign payload ptr `(:array :uint8 ,payload-size)))
-	 (%write fd frame (foreign-type-size '(:struct can_frame))))))))
-
+	 (let ((sts (%write fd frame (foreign-type-size '(:struct can_frame)))))
+	   (if (= sts +socket-error+)
+	       (get-last-error)
+	       sts)))))))
+	 
 ;; ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
 ;;                const struct sockaddr *dest_addr, socklen_t addrlen);
 (defcfun (%sendto "sendto") ssize-t
