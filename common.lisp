@@ -414,7 +414,7 @@ ADDR ::= address to connect to."
   "Parses a string in the format a.b.c.d[:port] i.e. a dotted quad with
 optional port. If the port is not specified it defaults to 0."
   (let ((pos (position #\: string :test #'char=)))
-v    (let ((instr (if pos
+    (let ((instr (if pos
 		     (subseq string 0 pos)
 		     string)))
       (sockaddr-in (dotted-quad-to-inaddr instr)
