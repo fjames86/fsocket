@@ -35,7 +35,7 @@
 
 ;; int socket(int socket_family, int socket_type, int protocol);
 (defcfun (%socket "socket") :int32
-v  (family :int32)
+  (family :int32)
   (type :int32)
   (prot :int32))
 
@@ -502,6 +502,7 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
   (fd :int32)
   (addr :pointer)
   (len :pointer))
+
 (defun socket-peer (fd)
   (with-foreign-objects ((addr :uint32 +sockaddr-storage+)
                          (len :uint32))
@@ -527,8 +528,6 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
   (option :int32)
   (val :pointer)
   (vlen :int32))
-
-
 
 ;; int fcntl(int fd, int cmd, ... /* arg */ );
 (defcfun (%fcntl "fcntl") :int32
@@ -686,6 +685,7 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 ;;            #define              ifa_dstaddr   ifa_ifu.ifu_dstaddr
 ;;                void            *ifa_data;    /* Address-specific data */
 ;;            };
+
 (defcstruct ifaddrs
   (next :pointer)
   (name :pointer)
@@ -702,7 +702,6 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 ;; void freeifaddrs(struct ifaddrs *ifa);
 (defcfun (%freeifaddrs "freeifaddrs") :void
   (ifaddrs :pointer))
-
         
 ;; struct ifreq
 ;;   {
@@ -730,11 +729,15 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 ;;       } ifr_ifru;
 ;;   };
 
-;; (defcunion ifreq-data
-;;   (addr (:struct sockaddr-in))
-;;   (flags :uint16)
-;;   (ivalue :int32)
-;;   (mtu :int32))
+
+;; struct ifmap {
+;;     unsigned long   mem_start;
+;;     unsigned long   mem_end;
+;;     unsigned short  base_addr;
+;;     unsigned char   irq;
+;;     unsigned char   dma;
+;;     unsigned char   port;
+;; };
 
 (defcstruct ifmap
   (mem_start :ulong)
@@ -770,6 +773,15 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 (defctype canid_t :uint32) 
 (defctype sa_family_t :uint16)
 
+;; struct can_frame {
+;;     canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
+;;     __u8    can_dlc; /* frame payload length in byte (0 .. 8) */
+;;     __u8    __pad;   /* padding */
+;;     __u8    __res0;  /* reserved / padding */
+;;     __u8    __res1;  /* reserved / padding */
+;;     __u8    data[8] __attribute__((aligned(8)));
+;; };
+
 (defcstruct can-frame
   (can_id canid_t)
   (can_dlc :uint8)
@@ -784,7 +796,18 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
   
 (defcunion can_address
   (tp (:struct TP)))
-  
+
+;; struct sockaddr_can {
+;;     sa_family_t can_family;
+;;     int         can_ifindex;
+;;     union {
+;; 	/* transport protocol class address info (e.g. ISOTP) */
+;; 	struct { canid_t rx_id, tx_id; } tp;
+
+;; 	/* reserved for future CAN protocols address information */
+;;     } can_addr;
+;; };
+
 (defcstruct sockaddr-can
   (can_family sa_family_t)
   (can_ifindex :int)
