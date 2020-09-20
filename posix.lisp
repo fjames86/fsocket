@@ -372,12 +372,12 @@ Returns the number of octets actually sent, which can be less than the number re
 (defun socket-recv (fd buffer &key (start 0) end)
   "Receive data from the socket.
 FD ::= socket.
-BUFFER ::= octet vector or foreign pointer that receives data.
+BUFFER ::= octet vector, foreign pointer or can-frame that receives data.
 START ::= buffer start index.
 END ::= buffer end index.
 
 Retuns the number of bytes actually received, which can be less than the number requested."
-  (declare (type (or (vector (unsigned-byte 8)) foreign-pointer) buffer))
+  (declare (type (or (vector (unsigned-byte 8)) foreign-pointer can-packet) buffer))
   (etypecase buffer
     ((vector (unsigned-byte 8))
      (let ((count (- (or end (length buffer)) start)))
@@ -401,8 +401,19 @@ Retuns the number of bytes actually received, which can be less than the number 
 	   ((= sts +socket-error+)
 	    (get-last-error))
 	   (t
-	    sts)))))))
-
+	    sts)))))
+    (can-packet
+     (with-foreign-object (frame '(:struct can_frame))
+       (%read fd frame (foreign-type-size '(:struct can_frame)))
+       (with-foreign-slots ((can_id can_dlc data) frame (:struct can_frame))
+	 (let* ((ptr-data (foreign-slot-pointer frame '(:struct can_frame) 'data))
+		(data (foreign-array-to-lisp ptr-data `(:array :int8 ,can_dlc))))
+	   (setf (can-packet-id buffer) can_id
+		 (can-packet-data buffer) data)
+	   (with-foreign-object (tv '(:struct timeval))
+	     (%ioctl fd +siocgstamp+ tv)
+	     (with-foreign-slots ((tv_sec tv_usec) tv (:struct timeval))
+	       (setf (can-packet-timestamp buffer) (list tv_sec tv_usec))))))))))
 
 ;;ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
 ;;                 struct sockaddr *src_addr, socklen_t *addrlen);
