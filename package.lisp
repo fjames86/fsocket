@@ -103,6 +103,10 @@
 	   
 	   #:open-udp-socket
 	   #:open-tcp-socket
-	   #:open-tcp-connection 
+	   #:open-tcp-connection
+
+	   ;; SocketCAN functions
+	   #:make-can-interface
+	   #:make-can-packet
            ))
 
