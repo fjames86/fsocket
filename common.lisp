@@ -421,6 +421,7 @@ optional port. If the port is not specified it defaults to 0."
 		   (if pos
 		       (parse-integer string :start (1+ pos))
 		       0)))))
+
 (defstruct can-interface
   (name))
 

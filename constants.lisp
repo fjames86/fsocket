@@ -23,7 +23,6 @@
 (defconstant +siocgifindex+ #x8933)
 (defconstant +siocgstamp+ #x8906)
 
-
 (defconstant +sock-stream+ 1)
 (defconstant +sock-dgram+ 2)
 (defconstant +sock-raw+ 3)
