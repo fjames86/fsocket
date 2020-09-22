@@ -26,6 +26,119 @@
 
 ;; --------------------------------------
 
+(defctype canid_t :uint32) 
+(defctype sa_family_t :uint16)
+
+;; struct can_frame {
+;;     canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
+;;     __u8    can_dlc; /* frame payload length in byte (0 .. 8) */
+;;     __u8    __pad;   /* padding */
+;;     __u8    __res0;  /* reserved / padding */
+;;     __u8    __res1;  /* reserved / padding */
+;;     __u8    data[8] __attribute__((aligned(8)));
+;; };
+
+(defcstruct can-frame
+  (can_id canid_t)
+  (can_dlc :uint8)
+  (pad :uint8)
+  (res0 :uint8)
+  (res1 :uint8)
+  (data :pointer))
+
+(defcstruct timeval
+  (tv_sec :int64)
+  (tv_usec :int64))
+
+(defcstruct TP
+  (rx_id canid_t)
+  (tx_id canid_t))
+  
+(defcunion can_address
+  (tp (:struct TP)))
+
+;; struct sockaddr_can {
+;;     sa_family_t can_family;
+;;     int         can_ifindex;
+;;     union {
+;; 	/* transport protocol class address info (e.g. ISOTP) */
+;; 	struct { canid_t rx_id, tx_id; } tp;
+
+;; 	/* reserved for future CAN protocols address information */
+;;     } can_addr;
+;; };
+
+(defcstruct sockaddr-can
+  (can_family sa_family_t)
+  (can_ifindex :int)
+  (can_addr (:union can_address)))
+
+
+;; struct ifreq
+;;   {
+;; # define IFHWADDRLEN    6
+;; # define IFNAMSIZ       IF_NAMESIZE
+;;     union
+;;       {
+;;         char ifrn_name[IFNAMSIZ];       /* Interface name, e.g. "en0".  */
+;;       } ifr_ifrn;
+
+;;     union
+;;       {
+;;         struct sockaddr ifru_addr;
+;;         struct sockaddr ifru_dstaddr;
+;;         struct sockaddr ifru_broadaddr;
+;;         struct sockaddr ifru_netmask;
+;;         struct sockaddr ifru_hwaddr;
+;;         short int ifru_flags;
+;;         int ifru_ivalue;
+;;         int ifru_mtu;
+;;         struct ifmap ifru_map;
+;;         char ifru_slave[IFNAMSIZ];      /* Just fits the size */
+;;         char ifru_newname[IFNAMSIZ];
+;;         __caddr_t ifru_data;
+;;       } ifr_ifru;
+;;   };
+
+
+;; struct ifmap {
+;;     unsigned long   mem_start;
+;;     unsigned long   mem_end;
+;;     unsigned short  base_addr;
+;;     unsigned char   irq;
+;;     unsigned char   dma;
+;;     unsigned char   port;
+;; };
+
+(defcstruct ifmap
+  (mem_start :ulong)
+  (mem_end :ulong)
+  (base_addr :ushort)
+  (irq :uchar)
+  (dma :uchar)
+  (port :uchar))
+
+(defcunion ifreq-data
+  (addr (:struct sockaddr-in))
+  (dst_addr (:struct sockaddr-in))
+  (broadaddr (:struct sockaddr-in))
+  (netmask (:struct sockaddr-in))
+  (hwaddr (:struct sockaddr-in))
+  (flags :uint16)
+  (ifindex :int32)
+  (metric :int32)
+  (mtu :int32)
+  (map (:struct ifmap))
+  (slave :char)
+  (newname :char)
+  (data :pointer))
+
+(defcstruct ifreq
+  (name :uint8 :count 16)
+  (data (:union ifreq-data)))
+
+
+
 ;; For when we need to allocate a bit of memory to receive addresses 
 (defconstant +sockaddr-storage+ 128) 
 
@@ -61,7 +174,8 @@ Returns the socket file descriptor."
 
 		       (or
 			(when (eql family :can)
-			  +can-raw+)
+			  #-linux (error "CAN networking only supported on Linux")
+			  #+linux +can-raw+)
 			protocol
 			0))))
       
@@ -707,115 +821,6 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 (defcfun (%freeifaddrs "freeifaddrs") :void
   (ifaddrs :pointer))
         
-;; struct ifreq
-;;   {
-;; # define IFHWADDRLEN    6
-;; # define IFNAMSIZ       IF_NAMESIZE
-;;     union
-;;       {
-;;         char ifrn_name[IFNAMSIZ];       /* Interface name, e.g. "en0".  */
-;;       } ifr_ifrn;
-
-;;     union
-;;       {
-;;         struct sockaddr ifru_addr;
-;;         struct sockaddr ifru_dstaddr;
-;;         struct sockaddr ifru_broadaddr;
-;;         struct sockaddr ifru_netmask;
-;;         struct sockaddr ifru_hwaddr;
-;;         short int ifru_flags;
-;;         int ifru_ivalue;
-;;         int ifru_mtu;
-;;         struct ifmap ifru_map;
-;;         char ifru_slave[IFNAMSIZ];      /* Just fits the size */
-;;         char ifru_newname[IFNAMSIZ];
-;;         __caddr_t ifru_data;
-;;       } ifr_ifru;
-;;   };
-
-
-;; struct ifmap {
-;;     unsigned long   mem_start;
-;;     unsigned long   mem_end;
-;;     unsigned short  base_addr;
-;;     unsigned char   irq;
-;;     unsigned char   dma;
-;;     unsigned char   port;
-;; };
-
-(defcstruct ifmap
-  (mem_start :ulong)
-  (mem_end :ulong)
-  (base_addr :ushort)
-  (irq :uchar)
-  (dma :uchar)
-  (port :uchar))
-
-(defcunion ifreq-data
-  (addr (:struct sockaddr-in))
-  (dst_addr (:struct sockaddr-in))
-  (broadaddr (:struct sockaddr-in))
-  (netmask (:struct sockaddr-in))
-  (hwaddr (:struct sockaddr-in))
-  (flags :uint16)
-  (ifindex :int32)
-  (metric :int32)
-  (mtu :int32)
-  (map (:struct ifmap))
-  (slave :char)
-  (newname :char)
-  (data :pointer))
-
-(defcstruct ifreq
-  (name :uint8 :count 16)
-  (data (:union ifreq-data)))
-
-(defcstruct timeval
-  (tv_sec :int64)
-  (tv_usec :int64))
-
-(defctype canid_t :uint32) 
-(defctype sa_family_t :uint16)
-
-;; struct can_frame {
-;;     canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
-;;     __u8    can_dlc; /* frame payload length in byte (0 .. 8) */
-;;     __u8    __pad;   /* padding */
-;;     __u8    __res0;  /* reserved / padding */
-;;     __u8    __res1;  /* reserved / padding */
-;;     __u8    data[8] __attribute__((aligned(8)));
-;; };
-
-(defcstruct can-frame
-  (can_id canid_t)
-  (can_dlc :uint8)
-  (pad :uint8)
-  (res0 :uint8)
-  (res1 :uint8)
-  (data :pointer))
-
-(defcstruct TP
-  (rx_id canid_t)
-  (tx_id canid_t))
-  
-(defcunion can_address
-  (tp (:struct TP)))
-
-;; struct sockaddr_can {
-;;     sa_family_t can_family;
-;;     int         can_ifindex;
-;;     union {
-;; 	/* transport protocol class address info (e.g. ISOTP) */
-;; 	struct { canid_t rx_id, tx_id; } tp;
-
-;; 	/* reserved for future CAN protocols address information */
-;;     } can_addr;
-;; };
-
-(defcstruct sockaddr-can
-  (can_family sa_family_t)
-  (can_ifindex :int)
-  (can_addr (:union can_address)))
 
 ;; unsigned int if_nametoindex(const char *ifname);
 (defcfun (%if-nametoindex "if_nametoindex") :uint32

@@ -430,12 +430,15 @@ optional port. If the port is not specified it defaults to 0."
   data
   timestamp)
 
-(defcfun (%read "read") :int
-  (fd :int)
-  (buffer :pointer)
-  (count :int))
+#-(or win32 windows)
+(progn
+  (defcfun (%read "read") :int
+    (fd :int)
+    (buffer :pointer)
+    (count :int))
+  
+  (defcfun (%write "write") :int
+    (fd :int)
+    (buffer :pointer)
+    (count :int)))
 
-(defcfun (%write "write") :int
-  (fd :int)
-  (buffer :pointer)
-  (count :int))
