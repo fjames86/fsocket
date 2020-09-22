@@ -2,7 +2,7 @@
 ;;;; This code is licensed under the MIT license.
 
 ;;; This file defines all the stuff for posix platforms (Linux,FreeBSD, maybe OSX one day)
-;;(asdf:make "fsocket")
+
 (in-package #:fsocket)
 
 ;; --------------------------------------
@@ -44,7 +44,6 @@
 FAMILY ::= address family integer. Either :INET, :INET6, :UNIX or :CAN.
 TYPE ::= socket type name, defaults to SOCK_DGRAM. Can be :datagram, :stream or :raw.
 PROTOCOL ::= socket protocol integer. Usually doesn't need to be specified.
-If family :can, use type :raw with protocol +can-raw+.
 
 Returns the socket file descriptor."
     (declare (type symbol family type)
