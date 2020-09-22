@@ -60,7 +60,12 @@ Returns the socket file descriptor."
 			 (:stream +sock-stream+)
 			 (:datagram +sock-dgram+))
 
-		       (or protocol 0))))
+		       (or
+			(when (eql family :can)
+			  +can-raw+)
+			protocol
+			0))))
+      
     (if (invalid-socket-p fd)
         (get-last-error)
         fd)))
