@@ -209,17 +209,20 @@ ADDR ::= local address or can interface. Can be SOCKADDR-IN, SOCKADDR-IN6 or str
     (if (can-interface-p addr)
 	;; bind can socket
 	(with-foreign-object (ifr '(:struct ifreq))
-	  (let* ((n (can-interface-name addr))
-		(n-size (length n))) 
-	  (lisp-string-to-foreign n (foreign-slot-value ifr '(:struct ifreq) 'name) (1+ n-size))
-	  (%ioctl fd +siocgifindex+ ifr)
 	  (with-foreign-object (sockaddr '(:struct sockaddr-can))
-	    (setf (foreign-slot-value sockaddr '(:struct sockaddr-can) 'can_family) +pf-can+)
-	    (let* ((ifrdata (foreign-slot-value ifr '(:struct ifreq) 'data))
-		   (index (foreign-slot-value ifrdata '(:union ifreq-data) 'ifindex)))      
-	      (setf (foreign-slot-value sockaddr '(:struct sockaddr-can) 'can_ifindex) index))
-	    (setq sock-addr-pointer sockaddr
-		  sock-addr-len (foreign-type-size '(:struct sockaddr-in))))))
+	    (let* ((n (can-interface-name addr))
+		   (n-size (length n)))
+	      (if (string= "any" n)				  
+		  (setf (foreign-slot-value sockaddr '(:struct sockaddr-can) 'can_ifindex) 0)
+		  (progn
+		    (lisp-string-to-foreign n (foreign-slot-value ifr '(:struct ifreq) 'name) (1+ n-size))
+		    (%ioctl fd +siocgifindex+ ifr)
+		    (setf (foreign-slot-value sockaddr '(:struct sockaddr-can) 'can_family) +pf-can+)
+		    (let* ((ifrdata (foreign-slot-value ifr '(:struct ifreq) 'data))
+			   (index (foreign-slot-value ifrdata '(:union ifreq-data) 'ifindex)))      
+		      (setf (foreign-slot-value sockaddr '(:struct sockaddr-can) 'can_ifindex) index))))	      
+	      (setq sock-addr-pointer sockaddr
+		    sock-addr-len (foreign-type-size '(:struct sockaddr-in))))))		    	    
 	;; bind internet socket
 	(with-foreign-object (p :uint8 +sockaddr-storage+)
 	  (let ((len +sockaddr-storage+))

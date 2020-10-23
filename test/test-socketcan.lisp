@@ -28,8 +28,10 @@
 ;; create CAN socket
 (defparameter *can-socket* (open-socket :family :can :type :raw))
 
-;; bind CAN socket 
+;; bind socket to a specific CAN interface
 (socket-bind *can-socket* (make-can-interface :name "vcan0"))
+;; bind socket to any CAN interface
+;;(socket-bind *can-socket* (make-can-interface :name "any"))
 
 ;; send frame over CAN socket
 ;; execute $ candump vcan0 

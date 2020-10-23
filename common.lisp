@@ -423,7 +423,7 @@ optional port. If the port is not specified it defaults to 0."
 		       0)))))
 
 (defstruct can-interface
-  (name))
+  (name "any"))
 
 (defstruct can-packet
   id
@@ -441,4 +441,3 @@ optional port. If the port is not specified it defaults to 0."
     (fd :int)
     (buffer :pointer)
     (count :int)))
-
