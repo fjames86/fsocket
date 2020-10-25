@@ -428,7 +428,8 @@ optional port. If the port is not specified it defaults to 0."
 (defstruct can-packet
   id
   data
-  timestamp)
+  timestamp
+  origin)
 
 #-(or win32 windows)
 (progn

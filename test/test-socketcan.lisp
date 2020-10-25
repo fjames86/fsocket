@@ -29,17 +29,18 @@
 (defparameter *can-socket* (open-socket :family :can :type :raw))
 
 ;; bind socket to a specific CAN interface
-(socket-bind *can-socket* (make-can-interface :name "vcan0"))
+;;(socket-bind *can-socket* (make-can-interface :name "vcan0"))
 ;; bind socket to any CAN interface
-;;(socket-bind *can-socket* (make-can-interface :name "any"))
+(socket-bind *can-socket* (make-can-interface :name "any"))
 
 ;; send frame over CAN socket
 ;; execute $ candump vcan0 
 (socket-send *can-socket* (make-can-packet :id 101 :data #(1 2 3)))
 ;; check stdout
 
-;; read frame from CAN socket 
 (defparameter *can-frame* (make-can-packet))
-(socket-recv *can-socket* *can-frame*) ;; should block
+;; read frame from a CAN socket using recv or recvfrom (if information about originating CAN interface is needed)
+;;(socket-recv *can-socket* *can-frame*) ;; should block
+(socket-recvfrom *can-socket* *can-frame*)
 ;; execute cansend vcan0 101#01.02.03.04.05.06.07.08
 (pprint *can-frame*)

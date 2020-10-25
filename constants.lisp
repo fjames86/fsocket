@@ -22,6 +22,7 @@
 (defconstant +pf-can+ 29)
 (defconstant +siocgifindex+ #x8933)
 (defconstant +siocgstamp+ #x8906)
+(defconstant +siocgifname+ #x8910)
 
 (defconstant +sock-stream+ 1)
 (defconstant +sock-dgram+ 2)

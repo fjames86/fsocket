@@ -28,6 +28,7 @@
 
 (defctype canid_t :uint32) 
 (defctype sa_family_t :uint16)
+(defctype socklen_t :uint32) 
 
 ;; struct can_frame {
 ;;     canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
@@ -560,7 +561,7 @@ Returns (values count addr) where
 COUNT ::= number of octets actually received, which can be less tha nthe number requested.
 ADDR ::= remote address from which the data was received.
 "
-  (declare (type (or (vector (unsigned-byte 8)) foreign-pointer) buffer))
+  (declare (type (or (vector (unsigned-byte 8)) foreign-pointer can-packet) buffer))
   (etypecase buffer
     ((vector (unsigned-byte 8))
      (let ((count (- (or end (length buffer)) start)))
@@ -598,9 +599,31 @@ ADDR ::= remote address from which the data was received.
 	     ((= sts +socket-error+)
 	      (get-last-error))
 	     (t
-	      (values sts (translate-sockaddr-from-foreign a))))))))))
+	      (values sts (translate-sockaddr-from-foreign a))))))))
+    (can-packet
+     (with-foreign-object (frame '(:struct can-frame))
+       (with-foreign-object (sockaddr '(:struct sockaddr-can))
+	 (with-foreign-object (len 'socklen_t)	   
+	   (setf (mem-aref len 'socklen_t) (foreign-type-size '(:struct sockaddr-can)))	   
+	   (%recvfrom fd frame (foreign-type-size '(:struct can-frame)) 0 sockaddr len)
+	    ;; todo: make function to avoid copy-paste
+	   (with-foreign-slots ((can_id can_dlc data) frame (:struct can-frame))
+	     (let* ((ptr-data (foreign-slot-pointer frame '(:struct can-frame) 'data))
+		    (data (foreign-array-to-lisp ptr-data `(:array :int8 ,can_dlc))))
+	       (setf (can-packet-id buffer) can_id
+		     (can-packet-data buffer) data)
+	       (with-foreign-object (tv '(:struct timeval))
+		 (%ioctl fd +siocgstamp+ tv)
+		 (with-foreign-slots ((tv_sec tv_usec) tv (:struct timeval))
+		   (setf (can-packet-timestamp buffer) (list tv_sec tv_usec)))
+		 (with-foreign-object (ifr '(:struct ifreq))
+		   (let* ((ifrdata (foreign-slot-value ifr '(:struct ifreq) 'data)))
+		     (setf (foreign-slot-value ifrdata '(:union ifreq-data) 'ifindex)
+			   (foreign-slot-value sockaddr '(:struct sockaddr-can) 'can_ifindex))
+		     (%ioctl fd +siocgifname+ ifr)
+		     (setf (can-packet-origin buffer)
+		      (foreign-string-to-lisp (foreign-slot-value ifr '(:struct ifreq) 'name))))))))))))))
 
-    
 ;; int getsockname(int socket, struct sockaddr *restrict address, socklen_t *restrict address_len);
 (defcfun (%getsockname "getsockname") :int32
   (fd :int32)
