@@ -429,7 +429,7 @@ START ::= buffer start index.
 END ::= buffer end index.
 
 Returns the number of octets actually sent, which can be less than the number requested."
-  (declare (type (or (vector (unsigned-byte 8)) foreign-pointer) buffer))
+  (declare (type (or (vector (unsigned-byte 8)) foreign-pointer can-packet) buffer))
   (etypecase buffer
     ((vector (unsigned-byte 8))
      (let ((count (- (or end (length buffer)) start))
@@ -477,9 +477,36 @@ Returns the number of octets actually sent, which can be less than the number re
 			     alen)))
 	   (if (= sts +socket-error+)
 	       (get-last-error)
-	       sts)))))))
+	       sts)))))
 
-
+    (can-packet
+     ;; todo: avoid copy-paste
+     (let* ((id (can-packet-id buffer))
+	    (payload (can-packet-data buffer))
+	    (payload-size (length payload))
+	    (n (can-interface-name addr))
+	    (n-size (length n)))       
+       (with-foreign-object (ifr '(:struct ifreq))
+	 (with-foreign-object (sockaddr '(:struct sockaddr-can))
+	   (with-foreign-object (frame '(:struct can-frame))
+	     (lisp-string-to-foreign n (foreign-slot-value ifr '(:struct ifreq) 'name) (1+ n-size))
+	     (%ioctl fd +siocgifindex+ ifr)
+	     (setf (foreign-slot-value sockaddr '(:struct sockaddr-can) 'can_family) +pf-can+)
+	     (let* ((ifrdata (foreign-slot-value ifr '(:struct ifreq) 'data))
+		    (index (foreign-slot-value ifrdata '(:union ifreq-data) 'ifindex)))      
+	       (setf (foreign-slot-value sockaddr '(:struct sockaddr-can) 'can_ifindex) index))
+	     (setf (foreign-slot-value frame '(:struct can-frame) 'can_id) id)
+	     (setf (foreign-slot-value frame '(:struct can-frame) 'can_dlc) payload-size)
+	     (let ((ptr (foreign-slot-pointer frame '(:struct can-frame) 'data)))	       
+	       (lisp-array-to-foreign payload ptr `(:array :uint8 ,payload-size))
+	       ;; todo: handle +socket-error+	       
+	       (%sendto
+		fd
+		frame
+		(foreign-type-size '(:struct can-frame))
+		0
+		sockaddr
+		(foreign-type-size '(:struct can-frame)))))))))))
 
 ;; ssize_t recv(int sockfd, void *buf, size_t len, int flags);
 (defcfun (%recv "recv") ssize-t
@@ -606,7 +633,8 @@ ADDR ::= remote address from which the data was received.
 	 (with-foreign-object (len 'socklen_t)	   
 	   (setf (mem-aref len 'socklen_t) (foreign-type-size '(:struct sockaddr-can)))	   
 	   (%recvfrom fd frame (foreign-type-size '(:struct can-frame)) 0 sockaddr len)
-	    ;; todo: make function to avoid copy-paste
+	   ;; todo: make function to avoid copy-paste
+	   ;; todo: handle +socket-error+ 
 	   (with-foreign-slots ((can_id can_dlc data) frame (:struct can-frame))
 	     (let* ((ptr-data (foreign-slot-pointer frame '(:struct can-frame) 'data))
 		    (data (foreign-array-to-lisp ptr-data `(:array :int8 ,can_dlc))))
