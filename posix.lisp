@@ -194,10 +194,7 @@ Returns the socket file descriptor."
 
 (defun close-socket (fd)
   "Close the socket named by FD."
-  (let ((sts (%close fd)))
-    (if (= sts -1)
-        (get-last-error)
-        nil)))
+  (with-funcall-else-socket-error (%close fd)))
 
 ;; int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 (defcfun (%bind "bind") :int32
@@ -295,10 +292,7 @@ A :POLLOUT event indicates a subsequent socket-connect will complete immediately
 
 (defun socket-listen (fd &optional backlog)
   "Start the socket listening."
-  (let ((sts (%listen fd (or backlog 128)))) ;; SOMAXCONN
-    (if (= sts +socket-error+)
-        (get-last-error)
-        nil)))
+  (with-funcall-else-socket-error (%listen fd (or backlog 128)))) ;; SOMAXCONN
                       
 ;; int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 (defcfun (%accept "accept") :int32
@@ -377,31 +371,28 @@ END ::= end index of buffer.
 
 Returns the number of bytes actually sent, which can be less than the requested length."
   (declare (type (or (vector (unsigned-byte 8)) foreign-pointer can-packet) buffer))
-  (let ((sts NIL))
-    (etypecase buffer
-      ((vector (unsigned-byte 8))
-       (let ((count (- (or end (length buffer)) start)))
-	 (with-foreign-object (p :uint8 count)
-	   (dotimes (i count)
-	     (setf (mem-aref p :uint8 i) (aref buffer (+ start i))))
-	   (setq sts (%send fd p count 0)))))      
-      (foreign-pointer
-       (let ((count (- (or end (error "Must provide end when passing pointer"))
-		       start)))
-	 (setq sts (%send fd (inc-pointer buffer start) count 0))))
-      (can-packet
-       (let* ((id (can-packet-id buffer))
-	      (payload (can-packet-data buffer))
-	      (payload-size (length payload)))
-	 (with-foreign-object (frame '(:struct can-frame))  
-	   (setf (foreign-slot-value frame '(:struct can-frame) 'can_id) id)
-	   (setf (foreign-slot-value frame '(:struct can-frame) 'can_dlc) payload-size)
-	   (let ((ptr (foreign-slot-pointer frame '(:struct can-frame) 'data)))	       
-	     (lisp-array-to-foreign payload ptr `(:array :uint8 ,payload-size)))
-	   (setq sts (%write fd frame (foreign-type-size '(:struct can-frame))))))))
-    (if (= sts +socket-error+)
-	(get-last-error)
-	sts)))
+  (with-funcall-else-socket-error
+      (etypecase buffer 
+	((vector (unsigned-byte 8))
+	 (let ((count (- (or end (length buffer)) start)))
+	   (with-foreign-object (p :uint8 count)
+	     (dotimes (i count)
+	       (setf (mem-aref p :uint8 i) (aref buffer (+ start i))))
+	     (%send fd p count 0))))      
+	(foreign-pointer
+	 (let ((count (- (or end (error "Must provide end when passing pointer"))
+			 start)))
+	   (%send fd (inc-pointer buffer start) count 0)))
+	(can-packet
+	 (let* ((id (can-packet-id buffer))
+		(payload (can-packet-data buffer))
+		(payload-size (length payload)))
+	   (with-foreign-object (frame '(:struct can-frame))  
+	     (setf (foreign-slot-value frame '(:struct can-frame) 'can_id) id)
+	     (setf (foreign-slot-value frame '(:struct can-frame) 'can_dlc) payload-size)
+	     (let ((ptr (foreign-slot-pointer frame '(:struct can-frame) 'data)))	       
+	       (lisp-array-to-foreign payload ptr `(:array :uint8 ,payload-size)))
+	     (%write fd frame (foreign-type-size '(:struct can-frame)))))))))
 	 
 ;; ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
 ;;                const struct sockaddr *dest_addr, socklen_t addrlen);
@@ -425,71 +416,68 @@ END ::= buffer end index.
 
 Returns the number of octets actually sent, which can be less than the number requested."
   (declare (type (or (vector (unsigned-byte 8)) foreign-pointer can-packet) buffer))
-  (let ((sts NIL))
-    (etypecase buffer
-      ((vector (unsigned-byte 8))
-       (let ((count (- (or end (length buffer)) start))
-	     (alen 0))
-	 (with-foreign-objects ((p :uint8 count)
-				(a :uint8 +sockaddr-storage+))
-	   (dotimes (i count)
-	     (setf (mem-aref p :uint8 i)
-		   (aref buffer (+ start i))))
-	   (etypecase addr
-	     (sockaddr-in
-	      (setf (mem-aref a '(:struct sockaddr-in)) addr
-		    alen (foreign-type-size '(:struct sockaddr-in))))
-	     (sockaddr-in6
-	      (setf (mem-aref a '(:struct sockaddr-in6)) addr
-		    alen (foreign-type-size '(:struct sockaddr-in6))))
-	     (string 
-	      (setf (mem-aref a '(:struct sockaddr-un)) addr
-		    alen (foreign-type-size '(:struct sockaddr-un)))))
-	   (setq sts (%sendto fd p count 0 a alen)))))	   
-	     
-      (foreign-pointer
-       (let ((alen 0)
-	     (count (- (or end (error "Must provide end when passing pointer"))
-		       start)))
-	 (with-foreign-object (a :uint8 +sockaddr-storage+)
-	   (etypecase addr
-	     (sockaddr-in (setf (mem-aref a '(:struct sockaddr-in)) addr
-				alen (foreign-type-size '(:struct sockaddr-in))))
-	     (sockaddr-in6
-	      (setf (mem-aref a '(:struct sockaddr-in6)) addr
-		    alen (foreign-type-size '(:struct sockaddr-in6)))))
-	   (setq sts (%sendto fd (inc-pointer buffer start) count 0 a alen)))))
-      
-      (can-packet
-       ;; todo: avoid copy-paste
-       (let* ((id (can-packet-id buffer))
-	      (payload (can-packet-data buffer))
-	      (payload-size (length payload))
-	      (n (can-interface-name addr))
-	      (n-size (length n)))       
-	 (with-foreign-object (ifr '(:struct ifreq))
-	   (with-foreign-object (sockaddr '(:struct sockaddr-can))
-	     (with-foreign-object (frame '(:struct can-frame))
-	       (lisp-string-to-foreign n (foreign-slot-value ifr '(:struct ifreq) 'name) (1+ n-size))
-	       (%ioctl fd +siocgifindex+ ifr)
-	       (setf (foreign-slot-value sockaddr '(:struct sockaddr-can) 'can_family) +pf-can+)
-	       (let* ((ifrdata (foreign-slot-value ifr '(:struct ifreq) 'data))
-		      (index (foreign-slot-value ifrdata '(:union ifreq-data) 'ifindex)))      
-		 (setf (foreign-slot-value sockaddr '(:struct sockaddr-can) 'can_ifindex) index))
-	       (setf (foreign-slot-value frame '(:struct can-frame) 'can_id) id)
-	       (setf (foreign-slot-value frame '(:struct can-frame) 'can_dlc) payload-size)
-	       (let ((ptr (foreign-slot-pointer frame '(:struct can-frame) 'data)))	       
-		 (lisp-array-to-foreign payload ptr `(:array :uint8 ,payload-size))	
-		 (setq sts (%sendto
-			    fd
-			    frame
-			    (foreign-type-size '(:struct can-frame))
-			    0
-			    sockaddr
-			    (foreign-type-size '(:struct can-frame)))))))))))
-    (if (= sts +socket-error+)
-	(get-last-error)
-	sts)))
+  (with-funcall-else-socket-error
+      (etypecase buffer
+	((vector (unsigned-byte 8))
+	 (let ((count (- (or end (length buffer)) start))
+	       (alen 0))
+	   (with-foreign-objects ((p :uint8 count)
+				  (a :uint8 +sockaddr-storage+))
+	     (dotimes (i count)
+	       (setf (mem-aref p :uint8 i)
+		     (aref buffer (+ start i))))
+	     (etypecase addr
+	       (sockaddr-in
+		(setf (mem-aref a '(:struct sockaddr-in)) addr
+		      alen (foreign-type-size '(:struct sockaddr-in))))
+	       (sockaddr-in6
+		(setf (mem-aref a '(:struct sockaddr-in6)) addr
+		      alen (foreign-type-size '(:struct sockaddr-in6))))
+	       (string 
+		(setf (mem-aref a '(:struct sockaddr-un)) addr
+		      alen (foreign-type-size '(:struct sockaddr-un)))))
+	     (%sendto fd p count 0 a alen))))	   
+	
+	(foreign-pointer
+	 (let ((alen 0)
+	       (count (- (or end (error "Must provide end when passing pointer"))
+			 start)))
+	   (with-foreign-object (a :uint8 +sockaddr-storage+)
+	     (etypecase addr
+	       (sockaddr-in (setf (mem-aref a '(:struct sockaddr-in)) addr
+				  alen (foreign-type-size '(:struct sockaddr-in))))
+	       (sockaddr-in6
+		(setf (mem-aref a '(:struct sockaddr-in6)) addr
+		      alen (foreign-type-size '(:struct sockaddr-in6)))))
+	     (%sendto fd (inc-pointer buffer start) count 0 a alen))))
+	
+	(can-packet
+	 ;; todo: avoid copy-paste
+	 (let* ((id (can-packet-id buffer))
+		(payload (can-packet-data buffer))
+		(payload-size (length payload))
+		(n (can-interface-name addr))
+		(n-size (length n)))       
+	   (with-foreign-object (ifr '(:struct ifreq))
+	     (with-foreign-object (sockaddr '(:struct sockaddr-can))
+	       (with-foreign-object (frame '(:struct can-frame))
+		 (lisp-string-to-foreign n (foreign-slot-value ifr '(:struct ifreq) 'name) (1+ n-size))
+		 (%ioctl fd +siocgifindex+ ifr)
+		 (setf (foreign-slot-value sockaddr '(:struct sockaddr-can) 'can_family) +pf-can+)
+		 (let* ((ifrdata (foreign-slot-value ifr '(:struct ifreq) 'data))
+			(index (foreign-slot-value ifrdata '(:union ifreq-data) 'ifindex)))      
+		   (setf (foreign-slot-value sockaddr '(:struct sockaddr-can) 'can_ifindex) index))
+		 (setf (foreign-slot-value frame '(:struct can-frame) 'can_id) id)
+		 (setf (foreign-slot-value frame '(:struct can-frame) 'can_dlc) payload-size)
+		 (let ((ptr (foreign-slot-pointer frame '(:struct can-frame) 'data)))	       
+		   (lisp-array-to-foreign payload ptr `(:array :uint8 ,payload-size))	
+		   (%sendto
+		    fd
+		    frame
+		    (foreign-type-size '(:struct can-frame))
+		    0
+		    sockaddr
+		    (foreign-type-size '(:struct can-frame))))))))))))
 
 ;; ssize_t recv(int sockfd, void *buf, size_t len, int flags);
 (defcfun (%recv "recv") ssize-t
@@ -536,7 +524,8 @@ Retuns the number of bytes actually received, which can be less than the number 
 	    sts)))))
     (can-packet
      (with-foreign-object (frame '(:struct can-frame))
-       (%read fd frame (foreign-type-size '(:struct can-frame)))
+       (with-funcall-else-socket-error
+	   (%read fd frame (foreign-type-size '(:struct can-frame))))
        (with-foreign-slots ((can_id can_dlc data) frame (:struct can-frame))
 	 (let* ((ptr-data (foreign-slot-pointer frame '(:struct can-frame) 'data))
 		(data (foreign-array-to-lisp ptr-data `(:array :int8 ,can_dlc))))
@@ -604,10 +593,10 @@ ADDR ::= remote address or can-interface from which the data was received.
      (with-foreign-object (frame '(:struct can-frame))
        (with-foreign-object (sockaddr '(:struct sockaddr-can))
 	 (with-foreign-object (len 'socklen_t)	   
-	   (setf (mem-aref len 'socklen_t) (foreign-type-size '(:struct sockaddr-can)))	   
-	   (%recvfrom fd frame (foreign-type-size '(:struct can-frame)) 0 sockaddr len)
+	   (setf (mem-aref len 'socklen_t) (foreign-type-size '(:struct sockaddr-can)))
+	   (with-funcall-else-socket-error
+	       (%recvfrom fd frame (foreign-type-size '(:struct can-frame)) 0 sockaddr len))
 	   ;; todo: make function to avoid copy-paste
-	   ;; todo: handle +socket-error+ 
 	   (with-foreign-slots ((can_id can_dlc data) frame (:struct can-frame))
 	     (let* ((ptr-data (foreign-slot-pointer frame '(:struct can-frame) 'data))
 		    (data (foreign-array-to-lisp ptr-data `(:array :int8 ,can_dlc))))
@@ -637,10 +626,8 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
   (with-foreign-objects ((addr :uint32 +sockaddr-storage+)
                          (len :uint32))
     (setf (mem-aref len :uint32) +sockaddr-storage+)
-    (let ((sts (%getsockname fd addr len)))
-      (when (= sts +socket-error+)
-        (get-last-error))
-      (translate-sockaddr-from-foreign addr))))
+    (with-funcall-else-socket-error (%getsockname fd addr len))
+    (translate-sockaddr-from-foreign addr)))
 
 ;;int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 (defcfun (%getpeername "getpeername") :int32
@@ -652,10 +639,8 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
   (with-foreign-objects ((addr :uint32 +sockaddr-storage+)
                          (len :uint32))
     (setf (mem-aref len :uint32) +sockaddr-storage+)
-    (let ((sts (%getpeername fd addr len)))
-      (when (= sts +socket-error+)
-        (get-last-error))
-      (translate-sockaddr-from-foreign addr))))
+    (with-funcall-else-socket-error (%getpeername fd addr len))
+    (translate-sockaddr-from-foreign addr)))
   
 
 ;; int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
