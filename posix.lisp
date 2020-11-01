@@ -24,10 +24,12 @@
   (let ((code (or ecode *errno*)))
     (error 'posix-error :code code)))
 
-(defun with-funcall-else-socket-error (call)
-  (if (= call +socket-error+)
+(defmacro with-funcall-else-socket-error (test-form &optional if-no-errors-form)
+  ;; avoid variable capture
+  `(if (= ,test-form ,+socket-error+)
       (get-last-error)
-      nil))
+      ,if-no-errors-form))
+
 ;; --------------------------------------
 
 (defctype canid_t :uint32) 
@@ -470,14 +472,15 @@ Returns the number of octets actually sent, which can be less than the number re
 		 (setf (foreign-slot-value frame '(:struct can-frame) 'can_id) id)
 		 (setf (foreign-slot-value frame '(:struct can-frame) 'can_dlc) payload-size)
 		 (let ((ptr (foreign-slot-pointer frame '(:struct can-frame) 'data)))	       
-		   (lisp-array-to-foreign payload ptr `(:array :uint8 ,payload-size))	
-		   (%sendto
-		    fd
-		    frame
-		    (foreign-type-size '(:struct can-frame))
-		    0
-		    sockaddr
-		    (foreign-type-size '(:struct can-frame))))))))))))
+		   (lisp-array-to-foreign payload ptr `(:array :uint8 ,payload-size))
+		   ;;(with-funcall-else-socket-error
+		       (%sendto
+			fd
+			frame
+			(foreign-type-size '(:struct can-frame))
+			0
+			sockaddr
+			(foreign-type-size '(:struct can-frame))))))))))))
 
 ;; ssize_t recv(int sockfd, void *buf, size_t len, int flags);
 (defcfun (%recv "recv") ssize-t
