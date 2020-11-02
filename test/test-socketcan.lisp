@@ -42,5 +42,6 @@
     (socket-recvfrom *can-socket* frame) ;; should block
     (pprint frame)))
 
-(test-specific-can-interface "vcan0")
+(test-specific-can-interface "vcan1")
 (test-general-can-interface)
+
