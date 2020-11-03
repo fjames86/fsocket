@@ -423,12 +423,13 @@ optional port. If the port is not specified it defaults to 0."
 		       0)))))
 
 (defstruct can-interface
-  (name))
+  (name "any"))
 
 (defstruct can-packet
   id
   data
-  timestamp)
+  timestamp
+  origin)
 
 #-(or win32 windows)
 (progn
@@ -441,4 +442,3 @@ optional port. If the port is not specified it defaults to 0."
     (fd :int)
     (buffer :pointer)
     (count :int)))
-

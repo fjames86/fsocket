@@ -28,16 +28,20 @@
 ;; create CAN socket
 (defparameter *can-socket* (open-socket :family :can :type :raw))
 
-;; bind CAN socket 
-(socket-bind *can-socket* (make-can-interface :name "vcan0"))
+(defun test-specific-can-interface (name)
+  (socket-bind *can-socket* (make-can-interface :name name))
+  (socket-send *can-socket* (make-can-packet :id 101 :data #(1 2 3)))
+  (let ((frame (make-can-packet)))
+    (socket-recv *can-socket* frame) ;; should block
+    (pprint frame)))
 
-;; send frame over CAN socket
-;; execute $ candump vcan0 
-(socket-send *can-socket* (make-can-packet :id 101 :data #(1 2 3)))
-;; check stdout
+(defun test-general-can-interface ()
+  (socket-bind *can-socket* (make-can-interface :name "any"))
+  (socket-sendto *can-socket* (make-can-packet :id 101 :data #(1 2 3)) (make-can-interface :name "vcan0"))
+  (let ((frame (make-can-packet)))
+    (socket-recvfrom *can-socket* frame) ;; should block
+    (pprint frame)))
 
-;; read frame from CAN socket 
-(defparameter *can-frame* (make-can-packet))
-(socket-recv *can-socket* *can-frame*) ;; should block
-;; execute cansend vcan0 101#01.02.03.04.05.06.07.08
-(pprint *can-frame*)
+(test-specific-can-interface "vcan1")
+(test-general-can-interface)
+
