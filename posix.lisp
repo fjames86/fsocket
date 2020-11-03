@@ -24,6 +24,7 @@
   (let ((code (or ecode *errno*)))
     (error 'posix-error :code code)))
 
+(defconstant +socket-error+ -1)
 (defmacro with-funcall-else-socket-error (socket-fn)
   (let ((sts (gensym)))
     `(let ((,sts ,socket-fn))
@@ -149,7 +150,6 @@
 ;; For when we need to allocate a bit of memory to receive addresses 
 (defconstant +sockaddr-storage+ 128) 
 
-(defconstant +socket-error+ -1)
 (defun invalid-socket-p (sock)
   (= sock -1))
 
