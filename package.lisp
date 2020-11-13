@@ -108,5 +108,6 @@
 	   ;; SocketCAN functions
 	   #:make-can-interface
 	   #:make-can-packet
+	   #:with-can-socket	   
            ))
 
