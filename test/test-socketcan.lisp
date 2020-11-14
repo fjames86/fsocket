@@ -38,10 +38,12 @@
      (with-can-socket (sckt name)
        (let ((frame (make-can-packet)))	 	     
 	 (socket-recv sckt frame)
-	 (assert (and
-		  (= 101 (fsocket::can-packet-id frame))
-		  (equalp #(1 2 3) (fsocket::can-packet-data frame))
-		  (eql NIL (fsocket::can-packet-origin frame))))))))
+	 (multiple-value-bind (id data timestamp origin) (parse-can-packet frame)
+	   (declare (ignore timestamp))
+	   (assert (and
+		    (= 101 id)
+		    (equalp #(1 2 3) data)
+		    (eql NIL origin))))))))
   (sleep 0.001)
   ;; send a frame
   (bt:make-thread
@@ -56,10 +58,12 @@
      (with-can-socket (sckt)
        (let ((frame (make-can-packet)))	 	     
 	 (socket-recvfrom sckt frame) ;; use recvfrom to get origin of data
-	 (assert (and
-		  (= 101 (fsocket::can-packet-id frame))
-		  (equalp #(1 2 3) (fsocket::can-packet-data frame))
-		  (string= "vcan0" (fsocket::can-packet-origin frame))))))))
+	 (multiple-value-bind (id data timestamp origin) (parse-can-packet frame)
+	   (declare (ignore timestamp))
+	   (assert (and
+		    (= 101 id)
+		    (equalp #(1 2 3) data)
+		    (string= "vcan0" origin))))))))
   (sleep 0.001)
   ;; send a frame
   (bt:make-thread
@@ -71,4 +75,16 @@
 ;; run tests
 (loopback-on-specific-can-interface "vcan0")
 (loopback-on-general-can-interface) 
-	
+
+;;;; some examples
+
+;; non-blocking read (write never blocks)
+(let ((frame (make-can-packet)))	 	     
+  (with-can-socket (sckt "vcan0")
+    (with-poll (pc)
+      (poll-register pc (make-instance 'pollfd :fd sckt :events (poll-events :pollin)))	
+      (loop :repeat 10 do
+	   (when (poll pc :timeout 100)
+	     (socket-recvfrom sckt frame))	 
+	   (print frame)))))
+  

@@ -431,6 +431,13 @@ optional port. If the port is not specified it defaults to 0."
   timestamp
   origin)
 
+(defun parse-can-packet (packet)
+  (values
+   (can-packet-id packet)
+   (can-packet-data packet)
+   (can-packet-timestamp packet)
+   (can-packet-origin packet)))
+
 #-(or win32 windows)
 (progn
   (defcfun (%read "read") :int

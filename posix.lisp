@@ -612,9 +612,8 @@ ADDR ::= remote address or can-interface from which the data was received.
 			     (foreign-string-to-lisp (foreign-slot-value ifr '(:struct ifreq) 'name)))
 		       (values sts (foreign-slot-value ifr '(:struct ifreq) 'name))))))))))))))
 
-
 (defmacro with-can-socket ((socket &optional (interface-name "any")) &rest body)
-  `(let ((,socket (open-socket :family :can :type :raw)))     
+  `(let ((,socket (open-socket :family :can :type :raw)))
      (socket-bind ,socket (make-can-interface :name ,interface-name))
      (unwind-protect	  
 	  (progn ,@body)
