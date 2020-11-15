@@ -150,7 +150,7 @@ on the host. Otherwise their usage is the same. See `test/test-unix.lisp` for an
 
 ### 4.6 Linux CAN Sockets
 On Linux platforms the BSD-sockets are extended by a SocketCAN API, which implements communication between a host OS and a CAN bus. 
-An application reads and sends CAN messages using SOCKET-RECV(), SOCKET-RECVFROM(), SOCKET-SEND() and SOCKET-SENDTO() after a corresponding file descriptor is created (OPEN-SOCKET) and bound (SOCKET-BIND).
+An application reads and sends CAN messages using SOCKET-RECV, SOCKET-RECVFROM, SOCKET-SEND and SOCKET-SENDTO after a corresponding file descriptor is created (OPEN-SOCKET) and bound (SOCKET-BIND).
 It is recommended to use the macro WITH-CAN-SOCKET to safely open, bind and close CAN sockets.
 All SocketCAN SEND* operations never block, all SocketCAN RECV* calls always block. Use polling to make the latter non-blocking.
 Some useful examples can be found in `test/test-socketcan.lisp`.
