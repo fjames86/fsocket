@@ -124,7 +124,7 @@ instance onto a list of pollfds stored with the poll context.
 * Therefore users should be aware that once they have registered with the
 poll context, the socket will now be in non-blocking mode.
 
-## 4.2 IP multicast 
+### 4.2 IP multicast 
 IPv4 UDP multicast is implemented and working. See test/test2.lisp.
 
 * `MULTICAST-JOIN` ::= join the socket to the multicast group on all ethernet interfaces.
