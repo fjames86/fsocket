@@ -16,32 +16,75 @@
   ;; $ candump vcan0
 
 ;; load libraries
-(asdf:make "cffi")
-(asdf:make "fsocket")
+(eval-when (:compile-toplevel)
+  (asdf:make "cffi")
+  (asdf:make "fsocket"))
+
+;; for testing purpose
+(eval-when (:compile-toplevel)
+  (ql:quickload :bt-semaphore))
 
 ;; define package
 (defpackage #:fsocket.test.can
   (:use #:cl #:fsocket))
 
 (in-package #:fsocket.test.can)
+  
+;;;; CAN loopback tests
+(defun loopback-on-specific-can-interface (name)
+  ;; wait for a frame
+  (bt:make-thread
+   (lambda ()
+     (with-can-socket (sckt name)
+       (let ((frame (make-can-packet)))	 	     
+	 (socket-recv sckt frame)
+	 (multiple-value-bind (id data timestamp origin) (parse-can-packet frame)
+	   (declare (ignore timestamp))
+	   (assert (and
+		    (= 101 id)
+		    (equalp #(1 2 3) data)
+		    (eql NIL origin))))))))
+  (sleep 0.001)
+  ;; send a frame
+  (bt:make-thread
+   (lambda ()     
+     (with-can-socket (sckt name)
+       (socket-send sckt (make-can-packet :id 101 :data #(1 2 3)))))))
 
-;; create CAN socket
-(defparameter *can-socket* (open-socket :family :can :type :raw))
+(defun loopback-on-general-can-interface ()
+  ;; wait for a frame
+  (bt:make-thread
+   (lambda ()
+     (with-can-socket (sckt)
+       (let ((frame (make-can-packet)))	 	     
+	 (socket-recvfrom sckt frame) ;; use recvfrom to get origin of data
+	 (multiple-value-bind (id data timestamp origin) (parse-can-packet frame)
+	   (declare (ignore timestamp))
+	   (assert (and
+		    (= 101 id)
+		    (equalp #(1 2 3) data)
+		    (string= "vcan0" origin))))))))
+  (sleep 0.001)
+  ;; send a frame
+  (bt:make-thread
+   (lambda ()     
+     (with-can-socket (sckt)
+       ;; use sendto to specify the target interface
+       (socket-sendto sckt (make-can-packet :id 101 :data #(1 2 3)) (make-can-interface :name "vcan0"))))))
 
-(defun test-specific-can-interface (name)
-  (socket-bind *can-socket* (make-can-interface :name name))
-  (socket-send *can-socket* (make-can-packet :id 101 :data #(1 2 3)))
-  (let ((frame (make-can-packet)))
-    (socket-recv *can-socket* frame) ;; should block
-    (pprint frame)))
+;; run tests
+(loopback-on-specific-can-interface "vcan0")
+(loopback-on-general-can-interface) 
 
-(defun test-general-can-interface ()
-  (socket-bind *can-socket* (make-can-interface :name "any"))
-  (socket-sendto *can-socket* (make-can-packet :id 101 :data #(1 2 3)) (make-can-interface :name "vcan0"))
-  (let ((frame (make-can-packet)))
-    (socket-recvfrom *can-socket* frame) ;; should block
-    (pprint frame)))
+;;;; some examples
 
-(test-specific-can-interface "vcan1")
-(test-general-can-interface)
-
+;; non-blocking read (write never blocks)
+(let ((frame (make-can-packet)))	 	     
+  (with-can-socket (sckt "vcan0")
+    (with-poll (pc)
+      (poll-register pc (make-instance 'pollfd :fd sckt :events (poll-events :pollin)))	
+      (loop :repeat 10 do
+	   (when (poll pc :timeout 100)
+	     (socket-recvfrom sckt frame))	 
+	   (print frame)))))
+  
