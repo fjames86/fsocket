@@ -27,7 +27,7 @@
                    (case event
                      (:pollin
                       ;; data to read
-                      (let ((buffer (make-array 1024)))
+                      (let ((buffer (make-array 1024 :element-type '(unsigned-byte 8))))
                         (multiple-value-bind (count addr) (socket-recvfrom (pollfd-fd pollfd) buffer)
                           (format t "Received ~A bytes from ~A~%" count addr)
                           ;; echo back
@@ -62,64 +62,61 @@
   ())
 
 (defun tcp-echo (port &optional timeout)
-  (let ((pc (open-poll)))
-    (unwind-protect
-         (progn
-           ;; allocate a TCP socket and start listening
-           (let ((sock (open-socket :type :stream)))
-             (socket-bind sock (make-sockaddr-in :port port))
-             (socket-listen sock)
-             (poll-register pc (make-instance 'test-listening-pollfd
-                                              :fd sock
-                                              :events (poll-events :pollin))))
-           
-           ;; poll and process the events
-           (do ((done nil)
-                (i 0 (1+ i)))
-               ((or done (> i 10)))
-             (doevents (pollfd event) (poll pc :timeout (or timeout 1000))
-               (case event
-                 (:pollin
-                  ;; data to read
-                  (etypecase pollfd
-                    (test-listening-pollfd
-                     ;; pollin on an listening socket means ready to accept a connection
-                     (multiple-value-bind (conn addr) (socket-accept (pollfd-fd pollfd))
-                       (format t "Accepted connection from ~A~%" addr)
-                       (poll-register pc (make-instance 'test-stream-pollfd
-                                                        :fd conn
-                                                        :events (poll-events :pollin :pollout)))))
-                    (test-stream-pollfd
-                     ;; read from the connection
-                     (let ((buffer (make-array 512)))
-                       (let ((count (socket-recv (pollfd-fd pollfd) buffer :start (test-count pollfd))))
-                         (format t "~A Received ~A bytes~%" (universal-time-string) count)
-                         (cond
-                           ((zerop count)
-                            ;; recving 0 bytes indicates a graceful close of the other side
-                            (close-socket (pollfd-fd pollfd))
-                            (poll-unregister pc pollfd))
-                           (t
-                            ;; put the buffer away and schedule a send
-                            (unless (test-buffer pollfd)
-                              (setf (test-buffer pollfd) buffer))
-                            (incf (test-count pollfd) count))))))))
-                 (:pollout
-                  ;; ready to write, reply with the count bytes (if any)
-                  (typecase pollfd
-                    (test-stream-pollfd 
-                     (when (and (test-count pollfd) (not (zerop (test-count pollfd))))
-                       (format t "Sending ~A bytes back~%" (test-count pollfd))
-                       (socket-send (pollfd-fd pollfd)
-                                    (test-buffer pollfd)
-                                    :end (test-count pollfd))
-                       (format t "setting done flag~%")
-                       (setf done t)))))))))
-      ;; close each socket 
-      (dolist (pollfd (poll-context-fds pc))
-        (close-socket (pollfd-fd pollfd)))
-      ;; close the poll context 
-      (close-poll pc))))
+  (with-poll (pc)
+    ;; allocate a TCP socket and start listening
+    (let ((sock (open-socket :type :stream)))
+      (socket-bind sock (make-sockaddr-in :port port))
+      (socket-listen sock)
+      (poll-register pc (make-instance 'test-listening-pollfd
+                                       :fd sock
+                                       :events (poll-events :pollin))))
+    
+    ;; poll and process the events
+    (do ((done nil)
+         (i 0 (1+ i)))
+        ((or done (> i 10)))
+      (doevents (pollfd event) (poll pc :timeout (or timeout 1000))
+        (case event
+          (:pollin
+           ;; data to read
+           (etypecase pollfd
+             (test-listening-pollfd
+              ;; pollin on an listening socket means ready to accept a connection
+              (multiple-value-bind (conn addr) (socket-accept (pollfd-fd pollfd))
+                (format t "Accepted connection from ~A~%" addr)
+                (poll-register pc (make-instance 'test-stream-pollfd
+                                                 :fd conn
+                                                 :events (poll-events :pollin :pollout)))))
+             (test-stream-pollfd
+              ;; read from the connection
+              (let ((buffer (make-array 512 :element-type '(unsigned-byte 8))))
+                (let ((count (socket-recv (pollfd-fd pollfd) buffer :start (test-count pollfd))))
+                  (format t "~A Received ~A bytes~%" (universal-time-string) count)
+                  (cond
+                    ((zerop count)
+                     ;; recving 0 bytes indicates a graceful close of the other side
+                     (close-socket (pollfd-fd pollfd))
+                     (poll-unregister pc pollfd))
+                    (t
+                     ;; put the buffer away and schedule a send
+                     (unless (test-buffer pollfd)
+                       (setf (test-buffer pollfd) buffer))
+                     (incf (test-count pollfd) count))))))))
+          (:pollout
+           ;; ready to write, reply with the count bytes (if any)
+           (typecase pollfd
+             (test-stream-pollfd 
+              (when (and (test-count pollfd) (not (zerop (test-count pollfd))))
+                (format t "Sending ~A bytes back~%" (test-count pollfd))
+                (socket-send (pollfd-fd pollfd)
+                             (test-buffer pollfd)
+                             :end (test-count pollfd))
+                (format t "setting done flag~%")
+                (setf done t))))))))
+    ;; close each socket 
+    (dolist (pollfd (poll-context-fds pc))
+      (close-socket (pollfd-fd pollfd)))))
+
 
 (defun tcp-send-test (port)
   (let ((fd (open-socket :type :stream))

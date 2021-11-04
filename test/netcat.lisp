@@ -165,120 +165,121 @@
 ;; in SSL streams
 
 ;; describes a listening TCP socket 
-(defclass tcp-pollfd (pollfd)
-  ((ssl-p :initform nil :initarg :ssl-p :reader tcp-pollfd-ssl-p)
-   (port :initarg :port :reader tcp-pollfd-port)))
+;; (defclass tcp-pollfd (pollfd)
+;;   ((ssl-p :initform nil :initarg :ssl-p :reader tcp-pollfd-ssl-p)
+;;    (port :initarg :port :reader tcp-pollfd-port)))
 
-;; describes a UDP socket 
-(defclass udp-pollfd (pollfd)
-  ())
+;; ;; describes a UDP socket 
+;; (defclass udp-pollfd (pollfd)
+;;   ())
 
-;; describes a TCP connection
-(defclass conn (pollfd)
-  ((buffer :initarg :buffer :reader conn-buffer
-	   :documentation "Buffer to receive I/O.")
-   (stream :initarg :stream :accessor conn-stream
-	   :documentation "A stream for I/O on the connection.")
-   (raddr :initarg :raddr :reader conn-raddr
-	  :documentation "Remote address of connection.")
-   (out :initform nil :accessor conn-out
-	:documentation "A CONN instance for the outbound connection.")))
+;; ;; describes a TCP connection
+;; (defclass conn (pollfd)
+;;   ((buffer :initarg :buffer :reader conn-buffer
+;; 	   :documentation "Buffer to receive I/O.")
+;;    (stream :initarg :stream :accessor conn-stream
+;; 	   :documentation "A stream for I/O on the connection.")
+;;    (raddr :initarg :raddr :reader conn-raddr
+;; 	  :documentation "Remote address of connection.")
+;;    (out :initform nil :accessor conn-out
+;; 	:documentation "A CONN instance for the outbound connection.")))
 
-(defun make-conn-pair (fd-in fd-out ssl-p pc &key raddr oaddr certfile pkfile pkpasswd buffer-size)
-  (let ((conn-in (make-instance 'conn
-				:fd fd-in
-				:events (poll-events :pollin)
-				:buffer (make-array buffer-size :element-type '(unsigned-byte 8))
-				:raddr raddr
-				:stream (make-tcp-stream fd-in pc)))
-	(conn-out (make-instance 'conn
-				 :fd fd-out 
-				 :events (poll-events :pollin)
-				 :buffer (make-array buffer-size :element-type '(unsigned-byte 8))
-				 :raddr oaddr 
-				 :stream (make-tcp-stream fd-out pc))))
-    (when ssl-p 
-      (setf (conn-stream conn-in)
-	    (cl+ssl:make-ssl-server-stream (conn-stream conn-in)
-					   :certificate certfile 
-					   :key pkfile 
-					   :password pkpasswd)
-	    (conn-stream conn-out)
-	    (cl+ssl:make-ssl-client-stream (conn-stream conn-out))))
-    (values conn-in conn-out)))
+;; (defun make-conn-pair (fd-in fd-out ssl-p pc &key raddr oaddr certfile pkfile pkpasswd buffer-size)
+;;   #+(or windows win32)(declare (ignore certfile pkfile pkpasswd ssl-p))
+;;   (let ((conn-in (make-instance 'conn
+;; 				:fd fd-in
+;; 				:events (poll-events :pollin)
+;; 				:buffer (make-array buffer-size :element-type '(unsigned-byte 8))
+;; 				:raddr raddr
+;; 				:stream (make-tcp-stream fd-in)))
+;; 	(conn-out (make-instance 'conn
+;; 				 :fd fd-out 
+;; 				 :events (poll-events :pollin)
+;; 				 :buffer (make-array buffer-size :element-type '(unsigned-byte 8))
+;; 				 :raddr oaddr 
+;; 				 :stream (make-tcp-stream fd-out))))
+;;     #-(or windows win32)(when ssl-p 
+;; 			  (setf (conn-stream conn-in)
+;; 				(cl+ssl:make-ssl-server-stream (conn-stream conn-in)
+;; 							       :certificate certfile 
+;; 							       :key pkfile 
+;; 							       :password pkpasswd)
+;; 				(conn-stream conn-out)
+;; 				(cl+ssl:make-ssl-client-stream (conn-stream conn-out))))
+;;     (values conn-in conn-out)))
 
-(defun register-listeners (pc mappings)
-  (dolist (mapping mappings)
-    (destructuring-bind (listen-port proxy-port &optional ssl-p) mapping
-      (let ((fd (open-tcp-socket listen-port)))
-	(poll-register pc
-		       (make-instance 'tcp-pollfd 
-				      :fd fd
-				      :events (poll-events :pollin)
-				      :port proxy-port 
-				      :ssl-p ssl-p))))))
+;; (defun register-listeners (pc mappings)
+;;   (dolist (mapping mappings)
+;;     (destructuring-bind (listen-port proxy-port &optional ssl-p) mapping
+;;       (let ((fd (open-tcp-socket listen-port)))
+;; 	(poll-register pc
+;; 		       (make-instance 'tcp-pollfd 
+;; 				      :fd fd
+;; 				      :events (poll-events :pollin)
+;; 				      :port proxy-port 
+;; 				      :ssl-p ssl-p))))))
 
-(defun close-all-sockets (pc)
-  (dolist (pfd (poll-context-fds pc))
-    (close-socket (pollfd-fd pfd))))
+;; (defun close-all-sockets (pc)
+;;   (dolist (pfd (poll-context-fds pc))
+;;     (close-socket (pollfd-fd pfd))))
 
-(defun netcat (mappings &key host ssl-certificate-file ssl-privatekey-file ssl-privatekey-password
-			  (out-stream *standard-output*) text-p (buffer-size 4096)
-			  (timeout 1000) (max-iterations 1000) verbose-p)
-  "Accept connections and forward all traffic, printing traffic data. 
-MAPPINGS ::= list of forms (local-port remote-port &optional ssl-p)
-where LOCAL-PORT ::= local port to listen for connections.
-      REMOTE-PORT ::= port on HOST to send data to.
-      SSL-P ::= if true the connections is wrapped with a CL+SSL stream.
-HOST ::= remote host to send data to, defaults to localhost.
-SSL-CERTIFICATE-FILE, SSL-PRIVATEKEY-FILE, SSL-PRIVATEKEY-PASSWORD ::= these must be 
-provided if you require using SSL-P to be true.
-OUT-STREAM ::= stream to print the intercepted data to.
-TEXT-P ::= if true, the data is interpreted as text to be printed, otherwise a hexdump is printed.
-BUFFER-SIZE  ::= maximum recv size 
-TIMEOUT ::= milliseconds to poll for."
-  (with-poll (pc)
-    (unwind-protect
-	 (let ((inaddr (if host (dns:get-host-by-name host) #(127 0 0 1))))
-	   (register-listeners pc mappings)
-	   (do ((i 0 (1+ i)))
-	       ((> i max-iterations))
-	     (doevents (pfd event) (poll pc :timeout timeout)
-	       (typecase pfd
-		 (tcp-pollfd
-		  (case event
-		    (:pollin ;; ready to accept connection
-		     (multiple-value-bind (fd-in raddr) (socket-accept (pollfd-fd pfd))
-		       (when verbose-p (format out-stream ";; ACCEPT LOCAL ~A REMOTE ~A~%"
-					       (sockaddr-string (socket-name (pollfd-fd pfd)))
-					       (sockaddr-string raddr)))
-		       (let ((oaddr (sockaddr-in inaddr (tcp-pollfd-port pfd))))
-			 (when verbose-p (format out-stream ";; CONNECTING ~A ...~%" (sockaddr-string oaddr)))
-		       (let ((fd-out (open-tcp-connection oaddr)))
-			 (when verbose-p (format out-stream ";; CONNECTED~%"))
-			 (multiple-value-bind (conn-in conn-out) (make-conn-pair fd-in fd-out (tcp-pollfd-ssl-p pfd) pc
-										 :raddr raddr
-										 :oaddr oaddr 
-										 :certfile ssl-certificate-file
-										 :pkfile ssl-privatekey-file
-										 :pkpasswd ssl-privatekey-password
-										 :buffer-size buffer-size)
-			   (poll-register pc conn-in)
-			   (poll-register pc conn-out))))))))
-		 (conn
-		  (case event
-		    (:pollin ;; ready to recv
-		     (when verbose-p (format out-stream ";; RECVING from ~A~%" (sockaddr-string (conn-raddr pfd))))
-		     (let ((cnt (read-sequence (conn-buffer pfd) (conn-stream pfd))))
-		       (format out-stream ";; RECV ~A from ~A~%" cnt (sockaddr-string (conn-raddr pfd)))
-		       (if text-p
-			   (format out-stream "~A~%" (babel:octets-to-string (conn-buffer pfd) :end cnt))
-			   (hd (conn-buffer pfd) :end cnt :stream out-stream))
-		       (when verbose-p (format out-stream ";; SENDING ~A to ~A ...~%" cnt (sockaddr-string (conn-raddr (conn-out pfd)))))
-		       (let ((c (write-sequence (conn-buffer pfd) (conn-stream (conn-out pfd)) :end cnt)))
-			 (when verbose-p (format out-stream ";; SENT ~A~%" c)))))))))))
-      (close-all-sockets pc))))
-			  
+;; (defun netcat (mappings &key host ssl-certificate-file ssl-privatekey-file ssl-privatekey-password
+;; 			  (out-stream *standard-output*) text-p (buffer-size 4096)
+;; 			  (timeout 1000) (max-iterations 1000) verbose-p)
+;;   "Accept connections and forward all traffic, printing traffic data. 
+;; MAPPINGS ::= list of forms (local-port remote-port &optional ssl-p)
+;; where LOCAL-PORT ::= local port to listen for connections.
+;;       REMOTE-PORT ::= port on HOST to send data to.
+;;       SSL-P ::= if true the connections is wrapped with a CL+SSL stream.
+;; HOST ::= remote host to send data to, defaults to localhost.
+;; SSL-CERTIFICATE-FILE, SSL-PRIVATEKEY-FILE, SSL-PRIVATEKEY-PASSWORD ::= these must be 
+;; provided if you require using SSL-P to be true.
+;; OUT-STREAM ::= stream to print the intercepted data to.
+;; TEXT-P ::= if true, the data is interpreted as text to be printed, otherwise a hexdump is printed.
+;; BUFFER-SIZE  ::= maximum recv size 
+;; TIMEOUT ::= milliseconds to poll for."
+;;   (with-poll (pc)
+;;     (unwind-protect
+;; 	 (let ((inaddr (if host (dns:get-host-by-name host) #(127 0 0 1))))
+;; 	   (register-listeners pc mappings)
+;; 	   (do ((i 0 (1+ i)))
+;; 	       ((> i max-iterations))
+;; 	     (doevents (pfd event) (poll pc :timeout timeout)
+;; 	       (typecase pfd
+;; 		 (tcp-pollfd
+;; 		  (case event
+;; 		    (:pollin ;; ready to accept connection
+;; 		     (multiple-value-bind (fd-in raddr) (socket-accept (pollfd-fd pfd))
+;; 		       (when verbose-p (format out-stream ";; ACCEPT LOCAL ~A REMOTE ~A~%"
+;; 					       (sockaddr-string (socket-name (pollfd-fd pfd)))
+;; 					       (sockaddr-string raddr)))
+;; 		       (let ((oaddr (sockaddr-in inaddr (tcp-pollfd-port pfd))))
+;; 			 (when verbose-p (format out-stream ";; CONNECTING ~A ...~%" (sockaddr-string oaddr)))
+;; 			 (let ((fd-out (open-tcp-connection oaddr)))
+;; 			   (when verbose-p (format out-stream ";; CONNECTED~%"))
+;; 			   (multiple-value-bind (conn-in conn-out) (make-conn-pair fd-in fd-out (tcp-pollfd-ssl-p pfd) pc
+;; 										   :raddr raddr
+;; 										   :oaddr oaddr 
+;; 										   :certfile ssl-certificate-file
+;; 										   :pkfile ssl-privatekey-file
+;; 										   :pkpasswd ssl-privatekey-password
+;; 										   :buffer-size buffer-size)
+;; 			     (poll-register pc conn-in)
+;; 			     (poll-register pc conn-out))))))))
+;; 		 (conn
+;; 		  (case event
+;; 		    (:pollin ;; ready to recv
+;; 		     (when verbose-p (format out-stream ";; RECVING from ~A~%" (sockaddr-string (conn-raddr pfd))))
+;; 		     (let ((cnt (read-sequence (conn-buffer pfd) (conn-stream pfd))))
+;; 		       (format out-stream ";; RECV ~A from ~A~%" cnt (sockaddr-string (conn-raddr pfd)))
+;; 		       (if text-p
+;; 			   (format out-stream "~A~%" (babel:octets-to-string (conn-buffer pfd) :end cnt))
+;; 			   (hd (conn-buffer pfd) :end cnt :stream out-stream))
+;; 		       (when verbose-p (format out-stream ";; SENDING ~A to ~A ...~%" cnt (sockaddr-string (conn-raddr (conn-out pfd)))))
+;; 		       (let ((c (write-sequence (conn-buffer pfd) (conn-stream (conn-out pfd)) :end cnt)))
+;; 			 (when verbose-p (format out-stream ";; SENT ~A~%" c)))))))))))
+;;       (close-all-sockets pc))))
+
 
 
 ;; -----------------------------------------------
@@ -292,6 +293,7 @@ TIMEOUT ::= milliseconds to poll for."
   (with-poll (pc)
     (with-tcp-socket (fd local-port)
       (multiple-value-bind (conn raddr) (socket-accept fd)
+	(declare (ignore conn))
 	(format t "ACCEPT ~A~%" (sockaddr-string raddr))
 	(with-socket (conn)
 	  (with-tcp-connection (proxy proxy-address)

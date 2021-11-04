@@ -1038,7 +1038,7 @@ Returns a list of registered pollfd structures. Users should check the REVENTS s
 
 ;; DNS
 
-;; Fortunately this seems to have th same layout on Linux and FreeBSD
+;; Fortunately this seems to have the same layout on Linux and FreeBSD
 ;; struct __res_state {
 ;;         int     retrans;                /*%< retransmission time interval */
 ;;         int     retry;                  /*%< number of times to retransmit */

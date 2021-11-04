@@ -54,7 +54,7 @@ The 4 I/O functions also accept a foreign pointer instead of an octet vector as 
 ### 2.3 Polling
 Provides an API based on POSIX poll(). On systems where this is available (i.e. everywhere except Windows)
 it calls directly to poll(). On Windows it calls WSAEnumNetworkEvents() and iterates over each socket. The Windows
-events are mapping to poll events.
+events are mapped to poll events.
 
 * OPEN-POLL :: open a polling context.
 * CLOSE-POLL :: close a polling context.

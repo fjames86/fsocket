@@ -763,7 +763,7 @@ Returns a SOCKADDR-IN or SOCKADDR-IN6 structure."
   
   pollfd)
 
-(declaim (ftype (function (poll-context pollfd) null)))
+(declaim (ftype (function (poll-context pollfd) null) poll-unregister))
 (defun poll-unregister (pc pollfd)
   "Unregister a pollfd descriptor from the poll context."
   (declare (type poll-context pc)
@@ -793,7 +793,7 @@ Returns the pollfd with the matching file descriptor if found."
 (defun poll (pc &key timeout)
   "Poll the sockets registered with the poll context for network events.
 
-PC ::= poll context as returne from OPEN-POLL.
+PC ::= poll context as returned from OPEN-POLL.
 TIMEOUT ::= if supplied time in milliseconds to wait. If not supplied defaults to infinity.
 
 Returns a list of registered pollfd structures. Users should check the REVENTS slot for pending events.
